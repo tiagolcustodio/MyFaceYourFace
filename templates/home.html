@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="layout">
+  <div class="col-left">
+    <div class="avatar-placeholder"></div>
+  </div>
+
+  <div class="col-main">
+    <h2>Olá {{ user.display_name }}</h2>
+
+    <div class="summary">
+      <div>Você tem <b>Solicitações de amizade ({{ pending_requests_count }})</b></div>
+      <div>Você tem <b>Mensagens ({{ messages_count }})</b></div>
+    </div>
+
+    <h3>Você talvez conheça:</h3>
+    <div class="user-list">
+      {% for u in user_cards %}
+        <div class="user-card">
+          <div class="mini-avatar"></div>
+          <div class="user-info">
+            <div class="user-name">{{ u.display_name }}</div>
+            <div class="user-handle">@{{ u.username }}</div>
+          </div>
+          <div class="user-action">
+            {% if u.can_request %}
+              <form method="post" action="{{ url_for('send_friend_request', to_user_id=u.id) }}">
+                <button type="submit">Solicitar amizade</button>
+              </form>
+            {% else %}
+              <button class="disabled" disabled>{{ u.label }}</button>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="col-right">
+    <div class="sidebox">
+      <div class="sidebox-header">
+        <h3>Friends</h3>
+        <a class="sidebox-link" href="{{ url_for('friends_page') }}">See all friends</a>
+      </div>
+
+      {% if friends_random|length == 0 %}
+        <div class="muted">Nenhum amigo ainda.</div>
+      {% else %}
+        <div class="grid-3">
+          {% for f in friends_random %}
+            <div class="grid-item">
+              <div class="friend-avatar"></div>
+              <div class="grid-name">{{ f.display_name }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="sidebox">
+      <div class="sidebox-header">
+        <h3>Communities</h3>
+      </div>
+
+      <div class="grid-3">
+        {% for i in range(12) %}
+          <div class="grid-item">
+            <div class="community-avatar"></div>
+            <div class="grid-name muted">Community</div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

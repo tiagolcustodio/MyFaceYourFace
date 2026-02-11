@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Friends</h2>
+
+{% if friends|length == 0 %}
+  <div class="muted">Você ainda não tem amigos.</div>
+{% else %}
+  <div class="grid-4">
+    {% for f in friends %}
+      <div class="grid-item big">
+        <div class="friend-avatar big"></div>
+        <div class="grid-name">{{ f.display_name }}</div>
+        <div class="muted">@{{ f.username }}</div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{% endblock %}

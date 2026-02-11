@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{{ app_name }} - Login</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-left">
+        <div class="logo-box">
+          <div class="logo-title">{{ app_name }}</div>
+          <div class="logo-sub">Prototype</div>
+        </div>
+      </div>
+
+      <div class="login-right">
+        <h2>Login</h2>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="flash">
+              {% for m in messages %}<div>{{ m }}</div>{% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <form method="post" action="{{ url_for('login_post') }}">
+          <label>Username</label>
+          <input name="username" autocomplete="username" required />
+
+          <label>Password</label>
+          <input name="password" type="password" autocomplete="current-password" required />
+
+          <button type="submit">Login</button>
+        </form>
+
+        <div class="hint">
+          (Sem cadastro por enquanto)
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

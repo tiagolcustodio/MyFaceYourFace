@@ -1,0 +1,191 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Arial, sans-serif; background: #f6f7fb; color: #111; }
+a { text-decoration: none; color: #111; }
+
+.container { max-width: 1100px; margin: 20px auto; padding: 0 16px; }
+
+.topbar {
+  background: #fff;
+  border-bottom: 1px solid #e7e7ef;
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 16px;
+  position: sticky;
+  top: 0;
+}
+
+.menu-left a { margin-right: 14px; font-weight: 600; }
+.menu-right { font-weight: 800; opacity: 0.85; }
+.danger { color: #b00020; }
+
+.flash {
+  background: #fff6d6;
+  border: 1px solid #ffe08a;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.layout { display: grid; grid-template-columns: 160px 1fr 280px; gap: 16px; align-items: start; }
+
+.col-left, .col-main, .col-right {
+  background: #fff;
+  border: 1px solid #e7e7ef;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.avatar-placeholder {
+  width: 120px; height: 120px;
+  background: #e9e9f2;
+  border-radius: 6px;
+}
+
+.mini-avatar {
+  width: 44px; height: 44px;
+  background: #e9e9f2;
+  border-radius: 6px;
+}
+
+.summary { margin: 10px 0 18px; display: grid; gap: 6px; }
+.muted { opacity: 0.7; }
+
+.user-list { display: flex; flex-direction: column; gap: 10px; }
+.user-card {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #ececf5;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.user-name { font-weight: 700; }
+.user-handle { font-size: 12px; opacity: 0.7; }
+
+button {
+  border: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #111;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+}
+button.disabled { background: #c9c9d4; cursor: not-allowed; color: #222; }
+button.danger { background: #b00020; }
+
+/* Side boxes (Friends / Communities) */
+.sidebox {
+  border: 1px solid #ececf5;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.sidebox-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.sidebox-header h3 { margin: 0; }
+.sidebox-link { font-size: 12px; font-weight: 700; opacity: 0.85; }
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.grid-item {
+  border: 1px solid #ececf5;
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+}
+
+.grid-item.big { padding: 14px; }
+
+.friend-avatar, .community-avatar {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 8px;
+  background: #e9e9f2;
+  border-radius: 8px;
+}
+
+.friend-avatar.big {
+  width: 80px;
+  height: 80px;
+}
+
+.grid-name {
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+/* Profile box */
+.profile-box { border: 1px solid #ececf5; padding: 12px; border-radius: 10px; }
+
+/* Requests */
+.requests { display: flex; flex-direction: column; gap: 10px; }
+.request-card { border: 1px solid #ececf5; border-radius: 10px; padding: 12px; }
+.request-actions { display: flex; gap: 10px; margin-top: 10px; }
+
+/* Login layout */
+.login-wrap {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.login-card {
+  width: 880px;
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #e7e7ef;
+  background: #fff;
+}
+
+.login-left {
+  padding: 30px;
+  background: #111;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-title { font-size: 28px; font-weight: 900; }
+.logo-sub { opacity: 0.8; margin-top: 8px; }
+
+.login-right { padding: 30px; }
+.login-right h2 { margin-top: 0; }
+
+label { display: block; margin-top: 12px; margin-bottom: 6px; font-weight: 700; }
+input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #e1e1ea;
+}
+
+.hint { margin-top: 12px; font-size: 12px; opacity: 0.75; }

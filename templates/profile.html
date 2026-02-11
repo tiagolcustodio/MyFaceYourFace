@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="layout">
+  <div class="col-left">
+    <div class="avatar-placeholder"></div>
+  </div>
+
+  <div class="col-main">
+    <h2>Profile</h2>
+
+    <div class="profile-box">
+      <div><b>Nome:</b> {{ user.display_name }}</div>
+      <div><b>Descrição:</b> {{ user.description if user.description else "(sem descrição)" }}</div>
+      <div><b>Solicitações de amizade:</b> {{ pending_requests_count }}</div>
+      <div><b>Mensagens:</b> {{ messages_count }}</div>
+    </div>
+  </div>
+
+  <div class="col-right">
+    <div class="sidebox">
+      <div class="sidebox-header">
+        <h3>Friends</h3>
+        <a class="sidebox-link" href="{{ url_for('friends_page') }}">See all friends</a>
+      </div>
+
+      {% if friends_random|length == 0 %}
+        <div class="muted">Nenhum amigo ainda.</div>
+      {% else %}
+        <div class="grid-3">
+          {% for f in friends_random %}
+            <div class="grid-item">
+              <div class="friend-avatar"></div>
+              <div class="grid-name">{{ f.display_name }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="sidebox">
+      <div class="sidebox-header">
+        <h3>Communities</h3>
+      </div>
+
+      <div class="grid-3">
+        {% for i in range(12) %}
+          <div class="grid-item">
+            <div class="community-avatar"></div>
+            <div class="grid-name muted">Community</div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
