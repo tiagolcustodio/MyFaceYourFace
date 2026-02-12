@@ -37,6 +37,19 @@ def close_db(_):
         db.close()
 
 
+def column_exists(table: str, column: str) -> bool:
+    db = get_db()
+    cols = db.execute(f"PRAGMA table_info({table})").fetchall()
+    return any(c["name"] == column for c in cols)
+
+
+def add_column_if_missing(table: str, column: str, ddl: str):
+    if not column_exists(table, column):
+        db = get_db()
+        db.execute(ddl)
+        db.commit()
+
+
 def init_db():
     db = get_db()
     db.executescript(
@@ -49,6 +62,7 @@ def init_db():
             description TEXT DEFAULT ''
         );
 
+        -- one row per direction
         CREATE TABLE IF NOT EXISTS friendships (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -73,11 +87,9 @@ def init_db():
     db.commit()
 
     # ---- MIGRATIONS (keeps old DBs working) ----
-    add_column_if_missing(
-        "messages",
-        "content",
-        "ALTER TABLE messages ADD COLUMN content TEXT DEFAULT NULL"
-    )
+    add_column_if_missing("messages", "content", "ALTER TABLE messages ADD COLUMN content TEXT DEFAULT NULL")
+    add_column_if_missing("messages", "read_at", "ALTER TABLE messages ADD COLUMN read_at TEXT DEFAULT NULL")
+
 
 def seed_default_users():
     db = get_db()
@@ -111,7 +123,6 @@ def login_required(fn):
         if "user_id" not in session:
             return redirect(url_for("login"))
         return fn(*args, **kwargs)
-
     return wrapper
 
 
@@ -138,7 +149,7 @@ def count_pending_friend_requests(user_id: int) -> int:
     return int(row["c"])
 
 
-def count_messages(user_id: int) -> int:
+def count_messages_total(user_id: int) -> int:
     db = get_db()
     row = db.execute(
         """
@@ -149,6 +160,34 @@ def count_messages(user_id: int) -> int:
         (user_id,),
     ).fetchone()
     return int(row["c"])
+
+
+def count_messages_unread(user_id: int) -> int:
+    db = get_db()
+    row = db.execute(
+        """
+        SELECT COUNT(*) AS c
+        FROM messages
+        WHERE to_user_id = ? AND type = 'message' AND read_at IS NULL
+        """,
+        (user_id,),
+    ).fetchone()
+    return int(row["c"])
+
+
+def mark_inbox_read(user_id: int):
+    """Marks ALL unread inbox messages as read (read_at set) for the current user."""
+    db = get_db()
+    now = datetime.utcnow().isoformat()
+    db.execute(
+        """
+        UPDATE messages
+        SET read_at = ?
+        WHERE to_user_id = ? AND type = 'message' AND read_at IS NULL
+        """,
+        (now, user_id),
+    )
+    db.commit()
 
 
 def list_friends(user_id: int):
@@ -209,12 +248,20 @@ def make_friendship(a: int, b: int):
     db.commit()
 
 
+def remove_friendship(a: int, b: int):
+    db = get_db()
+    db.execute("DELETE FROM friendships WHERE user_id = ? AND friend_id = ?", (a, b))
+    db.execute("DELETE FROM friendships WHERE user_id = ? AND friend_id = ?", (b, a))
+    db.commit()
+
+
 def get_user_by_username(username: str):
     db = get_db()
     return db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
 
 
-def get_messages_for_profile(profile_user_id: int):
+def get_wall_messages(profile_user_id: int):
+    """Messages posted to that user's profile (wall)."""
     db = get_db()
     return db.execute(
         """
@@ -226,6 +273,22 @@ def get_messages_for_profile(profile_user_id: int):
         ORDER BY m.created_at DESC
         """,
         (profile_user_id,),
+    ).fetchall()
+
+
+def get_inbox_messages(user_id: int):
+    """Messages received by current user (same as wall messages for them)."""
+    db = get_db()
+    return db.execute(
+        """
+        SELECT m.id, m.content, m.created_at, m.read_at,
+               u.display_name AS from_name, u.username AS from_username
+        FROM messages m
+        JOIN users u ON u.id = m.from_user_id
+        WHERE m.to_user_id = ? AND m.type = 'message'
+        ORDER BY m.created_at DESC
+        """,
+        (user_id,),
     ).fetchall()
 
 
@@ -273,7 +336,8 @@ def home():
     db = get_db()
 
     pending_requests_count = count_pending_friend_requests(user["id"])
-    messages_count = count_messages(user["id"])
+    messages_total_count = count_messages_total(user["id"])
+    messages_unread_count = count_messages_unread(user["id"])
     friends_random = list_friends_random(user["id"], limit=12)
 
     all_users = db.execute(
@@ -285,13 +349,14 @@ def home():
         if u["id"] == user["id"]:
             continue
 
+        # ✅ Hide existing friends completely from "People you may know"
+        if are_friends(user["id"], u["id"]):
+            continue
+
         can_request = True
         label = "Add friend"
 
-        if are_friends(user["id"], u["id"]):
-            can_request = False
-            label = "Already friends"
-        elif has_pending_request(user["id"], u["id"]):
+        if has_pending_request(user["id"], u["id"]):
             can_request = False
             label = "Request sent"
         elif has_pending_request(u["id"], user["id"]):
@@ -313,7 +378,8 @@ def home():
         app_name=APP_NAME,
         user=user,
         pending_requests_count=pending_requests_count,
-        messages_count=messages_count,
+        messages_total_count=messages_total_count,
+        messages_unread_count=messages_unread_count,
         friends_random=friends_random,
         user_cards=cards,
     )
@@ -342,7 +408,7 @@ def send_friend_request(to_user_id):
     return redirect(url_for("home"))
 
 
-# Friend requests page (NOT in the top menu; only linked from Home when count > 0)
+# Friend requests page (NOT in top menu; only linked from Home when count > 0)
 @app.get("/friend-requests")
 @login_required
 def friend_requests():
@@ -350,7 +416,8 @@ def friend_requests():
     db = get_db()
 
     pending_requests_count = count_pending_friend_requests(user["id"])
-    messages_count = count_messages(user["id"])
+    messages_total_count = count_messages_total(user["id"])
+    messages_unread_count = count_messages_unread(user["id"])
     friends_random = list_friends_random(user["id"], limit=12)
 
     pending = db.execute(
@@ -370,7 +437,8 @@ def friend_requests():
         user=user,
         pending_requests=pending,
         pending_requests_count=pending_requests_count,
-        messages_count=messages_count,
+        messages_total_count=messages_total_count,
+        messages_unread_count=messages_unread_count,
         friends_random=friends_random,
     )
 
@@ -421,7 +489,9 @@ def reject_friend_request(msg_id):
 @app.get("/profile")
 @login_required
 def my_profile_redirect():
+    # ✅ Visiting Profile counts as "viewed messages" (marks inbox read)
     user = current_user()
+    mark_inbox_read(user["id"])
     return redirect(url_for("user_profile", username=user["username"]))
 
 
@@ -434,15 +504,16 @@ def user_profile(username):
         abort(404)
 
     pending_requests_count = count_pending_friend_requests(viewer["id"])
-    messages_count = count_messages(viewer["id"])
+    messages_total_count = count_messages_total(viewer["id"])
+    messages_unread_count = count_messages_unread(viewer["id"])
 
-    # Right sidebar = friends of the PROFILE owner (not viewer)
+    # Right sidebar = friends of profile owner
     friends_random = list_friends_random(profile_user["id"], limit=12)
 
     is_owner = (viewer["id"] == profile_user["id"])
     is_friend = are_friends(viewer["id"], profile_user["id"]) if not is_owner else True
 
-    wall_messages = get_messages_for_profile(profile_user["id"])
+    wall_messages = get_wall_messages(profile_user["id"])
 
     return render_template(
         "profile.html",
@@ -452,7 +523,8 @@ def user_profile(username):
         is_owner=is_owner,
         is_friend=is_friend,
         pending_requests_count=pending_requests_count,
-        messages_count=messages_count,
+        messages_total_count=messages_total_count,
+        messages_unread_count=messages_unread_count,
         friends_random=friends_random,
         wall_messages=wall_messages,
     )
@@ -470,7 +542,7 @@ def post_message(username):
         flash("You cannot post a message to yourself (for now).")
         return redirect(url_for("user_profile", username=username))
 
-    # Only allow posting if they are friends
+    # Only friends can post
     if not are_friends(viewer["id"], profile_user["id"]):
         flash("You can only post messages to friends.")
         return redirect(url_for("user_profile", username=username))
@@ -480,7 +552,6 @@ def post_message(username):
         flash("Message cannot be empty.")
         return redirect(url_for("user_profile", username=username))
 
-    # Small safety: limit message size
     if len(content) > 500:
         flash("Message is too long (max 500 characters).")
         return redirect(url_for("user_profile", username=username))
@@ -488,8 +559,8 @@ def post_message(username):
     db = get_db()
     db.execute(
         """
-        INSERT INTO messages (from_user_id, to_user_id, type, status, content, created_at)
-        VALUES (?, ?, 'message', 'sent', ?, ?)
+        INSERT INTO messages (from_user_id, to_user_id, type, status, content, created_at, read_at)
+        VALUES (?, ?, 'message', 'sent', ?, ?, NULL)
         """,
         (viewer["id"], profile_user["id"], content, datetime.utcnow().isoformat()),
     )
@@ -504,7 +575,8 @@ def friends_page():
     user = current_user()
     friends = list_friends(user["id"])
     pending_requests_count = count_pending_friend_requests(user["id"])
-    messages_count = count_messages(user["id"])
+    messages_total_count = count_messages_total(user["id"])
+    messages_unread_count = count_messages_unread(user["id"])
 
     return render_template(
         "friends.html",
@@ -512,23 +584,49 @@ def friends_page():
         user=user,
         friends=friends,
         pending_requests_count=pending_requests_count,
-        messages_count=messages_count,
+        messages_total_count=messages_total_count,
+        messages_unread_count=messages_unread_count,
     )
 
 
-# Placeholders
+@app.post("/friends/unfriend/<username>")
+@login_required
+def unfriend(username):
+    user = current_user()
+    target = get_user_by_username(username)
+    if not target:
+        abort(404)
+
+    if target["id"] == user["id"]:
+        return redirect(url_for("friends_page"))
+
+    if are_friends(user["id"], target["id"]):
+        remove_friendship(user["id"], target["id"])
+        flash("Friend removed.")
+    return redirect(url_for("friends_page"))
+
+
 @app.get("/messages")
 @login_required
 def messages():
+    # ✅ Visiting Messages counts as "viewed messages" (marks inbox read)
     user = current_user()
+    mark_inbox_read(user["id"])
+
     pending_requests_count = count_pending_friend_requests(user["id"])
-    messages_count = count_messages(user["id"])
+    messages_total_count = count_messages_total(user["id"])
+    messages_unread_count = count_messages_unread(user["id"])  # will be 0 after marking read
+
+    inbox = get_inbox_messages(user["id"])
+
     return render_template(
-        "simple.html",
+        "messages.html",
         app_name=APP_NAME,
-        title="Messages",
+        user=user,
+        inbox=inbox,
         pending_requests_count=pending_requests_count,
-        messages_count=messages_count,
+        messages_total_count=messages_total_count,
+        messages_unread_count=messages_unread_count,
     )
 
 
@@ -537,13 +635,15 @@ def messages():
 def communities_page():
     user = current_user()
     pending_requests_count = count_pending_friend_requests(user["id"])
-    messages_count = count_messages(user["id"])
+    messages_total_count = count_messages_total(user["id"])
+    messages_unread_count = count_messages_unread(user["id"])
     return render_template(
         "simple.html",
         app_name=APP_NAME,
         title="Communities",
         pending_requests_count=pending_requests_count,
-        messages_count=messages_count,
+        messages_total_count=messages_total_count,
+        messages_unread_count=messages_unread_count,
     )
 
 
@@ -552,13 +652,15 @@ def communities_page():
 def settings_page():
     user = current_user()
     pending_requests_count = count_pending_friend_requests(user["id"])
-    messages_count = count_messages(user["id"])
+    messages_total_count = count_messages_total(user["id"])
+    messages_unread_count = count_messages_unread(user["id"])
     return render_template(
         "simple.html",
         app_name=APP_NAME,
         title="Settings",
         pending_requests_count=pending_requests_count,
-        messages_count=messages_count,
+        messages_total_count=messages_total_count,
+        messages_unread_count=messages_unread_count,
     )
 
 
@@ -567,29 +669,17 @@ def settings_page():
 def help_page():
     user = current_user()
     pending_requests_count = count_pending_friend_requests(user["id"])
-    messages_count = count_messages(user["id"])
+    messages_total_count = count_messages_total(user["id"])
+    messages_unread_count = count_messages_unread(user["id"])
     return render_template(
         "simple.html",
         app_name=APP_NAME,
         title="Help",
         pending_requests_count=pending_requests_count,
-        messages_count=messages_count,
+        messages_total_count=messages_total_count,
+        messages_unread_count=messages_unread_count,
     )
 
-def column_exists(table: str, column: str) -> bool:
-    db = get_db()
-    cols = db.execute(f"PRAGMA table_info({table})").fetchall()
-    return any(c["name"] == column for c in cols)
-
-
-def add_column_if_missing(table: str, column: str, ddl: str):
-    """
-    ddl exemplo: "ALTER TABLE messages ADD COLUMN content TEXT DEFAULT NULL"
-    """
-    if not column_exists(table, column):
-        db = get_db()
-        db.execute(ddl)
-        db.commit()
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))

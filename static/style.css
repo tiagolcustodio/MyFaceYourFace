@@ -1,8 +1,24 @@
 * { box-sizing: border-box; }
-body { margin: 0; font-family: Arial, sans-serif; background: #f6f7fb; color: #111; }
-a { text-decoration: none; color: #111; }
 
-.container { max-width: 1100px; margin: 20px auto; padding: 0 16px; }
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f6f7fb;
+  color: #111;
+}
+
+a {
+  text-decoration: none;
+  color: #111;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 20px auto;
+  padding: 0 16px;
+}
+
+/* ===================== TOP BAR ===================== */
 
 .topbar {
   background: #fff;
@@ -14,9 +30,22 @@ a { text-decoration: none; color: #111; }
   top: 0;
 }
 
-.menu-left a { margin-right: 14px; font-weight: 600; }
-.menu-right { font-weight: 800; opacity: 0.85; }
-.danger { color: #b00020; }
+.menu-left a {
+  margin-right: 14px;
+  font-weight: 600;
+}
+
+.menu-right {
+  font-weight: 800;
+  opacity: 0.85;
+}
+
+/* Classe danger para LINKS (texto vermelho) */
+.danger {
+  color: #b00020;
+}
+
+/* ===================== FLASH MESSAGES ===================== */
 
 .flash {
   background: #fff6d6;
@@ -26,33 +55,64 @@ a { text-decoration: none; color: #111; }
   margin-bottom: 12px;
 }
 
-.inline-link { font-weight: 800; }
+.inline-link {
+  font-weight: 800;
+}
 
-.layout { display: grid; grid-template-columns: 160px 1fr 280px; gap: 16px; align-items: start; }
+/* ===================== LAYOUT PRINCIPAL ===================== */
 
-.col-left, .col-main, .col-right {
+.layout {
+  display: grid;
+  grid-template-columns: 160px 1fr 280px;
+  gap: 16px;
+  align-items: start;
+}
+
+.col-left,
+.col-main,
+.col-right {
   background: #fff;
   border: 1px solid #e7e7ef;
   border-radius: 10px;
   padding: 14px;
 }
 
+/* ===================== AVATARS ===================== */
+
 .avatar-placeholder {
-  width: 120px; height: 120px;
+  width: 120px;
+  height: 120px;
   background: #e9e9f2;
   border-radius: 6px;
 }
 
 .mini-avatar {
-  width: 44px; height: 44px;
+  width: 44px;
+  height: 44px;
   background: #e9e9f2;
   border-radius: 6px;
 }
 
-.summary { margin: 10px 0 18px; display: grid; gap: 6px; }
-.muted { opacity: 0.7; }
+/* ===================== HOME SUMMARY ===================== */
 
-.user-list { display: flex; flex-direction: column; gap: 10px; }
+.summary {
+  margin: 10px 0 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.muted {
+  opacity: 0.7;
+}
+
+/* ===================== USER LIST ===================== */
+
+.user-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .user-card {
   display: grid;
   grid-template-columns: 52px 1fr auto;
@@ -64,8 +124,16 @@ a { text-decoration: none; color: #111; }
   background: #fff;
 }
 
-.user-name { font-weight: 700; }
-.user-handle { font-size: 12px; opacity: 0.7; }
+.user-name {
+  font-weight: 700;
+}
+
+.user-handle {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* ===================== BUTTONS ===================== */
 
 button {
   border: 0;
@@ -76,10 +144,29 @@ button {
   cursor: pointer;
   font-weight: 700;
 }
-button.disabled { background: #c9c9d4; cursor: not-allowed; color: #222; }
-button.danger { background: #b00020; }
 
-/* Side boxes (Friends / Communities) */
+button:hover {
+  filter: brightness(0.95);
+}
+
+button.disabled {
+  background: #c9c9d4;
+  cursor: not-allowed;
+  color: #222;
+}
+
+/* NOVA CLASSE PARA BOTÕES VERMELHOS (CORREÇÃO) */
+.btn-danger {
+  background: #b00020 !important;
+  color: #fff !important;
+}
+
+.btn-danger:hover {
+  filter: brightness(0.9);
+}
+
+/* ===================== SIDEBAR BOXES ===================== */
+
 .sidebox {
   border: 1px solid #ececf5;
   border-radius: 10px;
@@ -95,10 +182,21 @@ button.danger { background: #b00020; }
   margin-bottom: 10px;
 }
 
-.sidebox-header h3 { margin: 0; }
-.sidebox-link { font-size: 12px; font-weight: 700; opacity: 0.85; }
+.sidebox-header h3 {
+  margin: 0;
+}
 
-.grid-link { display: block; }
+.sidebox-link {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.grid-link {
+  display: block;
+}
+
+/* ===================== GRIDS ===================== */
 
 .grid-3 {
   display: grid;
@@ -119,9 +217,12 @@ button.danger { background: #b00020; }
   text-align: center;
 }
 
-.grid-item.big { padding: 14px; }
+.grid-item.big {
+  padding: 14px;
+}
 
-.friend-avatar, .community-avatar {
+.friend-avatar,
+.community-avatar {
   width: 56px;
   height: 56px;
   margin: 0 auto 8px;
@@ -141,22 +242,47 @@ button.danger { background: #b00020; }
   word-break: break-word;
 }
 
-/* Profile box */
-.profile-box { border: 1px solid #ececf5; padding: 12px; border-radius: 10px; }
+/* ===================== PROFILE ===================== */
 
-/* Friend requests */
-.requests { display: flex; flex-direction: column; gap: 10px; }
-.request-card { border: 1px solid #ececf5; border-radius: 10px; padding: 12px; }
-.request-actions { display: flex; gap: 10px; margin-top: 10px; }
+.profile-box {
+  border: 1px solid #ececf5;
+  padding: 12px;
+  border-radius: 10px;
+}
 
-/* Message compose */
+/* ===================== FRIEND REQUESTS ===================== */
+
+.requests {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.request-card {
+  border: 1px solid #ececf5;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.request-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* ===================== MESSAGE COMPOSE ===================== */
+
 .message-compose {
   margin-top: 14px;
   border: 1px solid #ececf5;
   border-radius: 10px;
   padding: 12px;
 }
-.message-compose h3 { margin: 0 0 10px; }
+
+.message-compose h3 {
+  margin: 0 0 10px;
+}
+
 textarea {
   width: 100%;
   border-radius: 10px;
@@ -165,10 +291,21 @@ textarea {
   resize: vertical;
   font-family: inherit;
 }
-.compose-actions { margin-top: 10px; display: flex; justify-content: flex-end; }
 
-/* Wall messages layout */
-.wall { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+.compose-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ===================== WALL (MESSAGES LAYOUT) ===================== */
+
+.wall {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
 
 .wall-item {
   display: grid;
@@ -180,8 +317,13 @@ textarea {
   padding: 12px;
 }
 
-.wall-left { text-align: center; }
-.avatar-link { display: inline-block; }
+.wall-left {
+  text-align: center;
+}
+
+.avatar-link {
+  display: inline-block;
+}
 
 .wall-avatar {
   width: 60px;
@@ -206,7 +348,8 @@ textarea {
   white-space: pre-wrap;
 }
 
-/* Login layout */
+/* ===================== LOGIN PAGE ===================== */
+
 .login-wrap {
   height: 100vh;
   display: flex;
@@ -235,13 +378,31 @@ textarea {
   justify-content: center;
 }
 
-.logo-title { font-size: 28px; font-weight: 900; }
-.logo-sub { opacity: 0.8; margin-top: 8px; }
+.logo-title {
+  font-size: 28px;
+  font-weight: 900;
+}
 
-.login-right { padding: 30px; }
-.login-right h2 { margin-top: 0; }
+.logo-sub {
+  opacity: 0.8;
+  margin-top: 8px;
+}
 
-label { display: block; margin-top: 12px; margin-bottom: 6px; font-weight: 700; }
+.login-right {
+  padding: 30px;
+}
+
+.login-right h2 {
+  margin-top: 0;
+}
+
+label {
+  display: block;
+  margin-top: 12px;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
 input {
   width: 100%;
   padding: 10px;
@@ -249,4 +410,8 @@ input {
   border: 1px solid #e1e1ea;
 }
 
-.hint { margin-top: 12px; font-size: 12px; opacity: 0.75; }
+.hint {
+  margin-top: 12px;
+  font-size: 12px;
+  opacity: 0.75;
+}

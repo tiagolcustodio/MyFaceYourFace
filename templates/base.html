@@ -14,7 +14,9 @@
       <a href="{{ url_for('home') }}">Home</a>
       <a href="{{ url_for('my_profile_redirect') }}">Profile</a>
       <a href="{{ url_for('friends_page') }}">Friends</a>
-      <a href="{{ url_for('messages') }}">Messages{% if messages_count and messages_count > 0 %} ({{ messages_count }}){% endif %}</a>
+      <a href="{{ url_for('messages') }}">
+        Messages{% if messages_total_count and messages_total_count > 0 %} ({{ messages_total_count }}){% endif %}
+      </a>
       <a href="{{ url_for('communities_page') }}">Communities</a>
       <a href="{{ url_for('settings_page') }}">Settings</a>
       <a href="{{ url_for('help_page') }}">Help</a>

@@ -16,7 +16,13 @@
           — <a class="inline-link" href="{{ url_for('friend_requests') }}">view</a>
         </div>
       {% endif %}
-      <div>You have <b>messages ({{ messages_count }})</b></div>
+
+      {% if messages_unread_count and messages_unread_count > 0 %}
+        <div>
+          You have <b>messages ({{ messages_unread_count }})</b>
+          — <a class="inline-link" href="{{ url_for('messages') }}">view</a>
+        </div>
+      {% endif %}
     </div>
 
     <h3>People you may know:</h3>
@@ -40,6 +46,10 @@
           </div>
         </div>
       {% endfor %}
+
+      {% if user_cards|length == 0 %}
+        <div class="muted">No suggestions right now.</div>
+      {% endif %}
     </div>
   </div>
 

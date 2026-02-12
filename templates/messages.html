@@ -1,51 +1,26 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="layout">
-  <div class="col-left">
-    <div class="avatar-placeholder"></div>
-  </div>
+<h2>Messages</h2>
 
-  <div class="col-main">
-    <h2>Messages</h2>
-
-    <h3>Solicitações de amizade</h3>
-
-    {% if pending_requests|length == 0 %}
-      <div class="muted">Nenhuma solicitação pendente.</div>
-    {% else %}
-      <div class="requests">
-        {% for r in pending_requests %}
-          <div class="request-card">
-            <div>
-              <b>{{ r.from_name }}</b> (@{{ r.from_username }}) quer ser seu amigo.
-            </div>
-            <div class="request-actions">
-              <form method="post" action="{{ url_for('accept_friend_request', msg_id=r.id) }}">
-                <button type="submit">Aceitar</button>
-              </form>
-              <form method="post" action="{{ url_for('reject_friend_request', msg_id=r.id) }}">
-                <button class="danger" type="submit">Rejeitar</button>
-              </form>
-            </div>
-          </div>
-        {% endfor %}
+{% if inbox|length == 0 %}
+  <div class="muted">No messages yet.</div>
+{% else %}
+  <div class="wall">
+    {% for m in inbox %}
+      <div class="wall-item">
+        <div class="wall-left">
+          <a href="{{ url_for('user_profile', username=m.from_username) }}" class="avatar-link">
+            <div class="wall-avatar"></div>
+            <div class="wall-name">{{ m.from_name }}</div>
+          </a>
+        </div>
+        <div class="wall-right">
+          <div class="wall-bubble">{{ m.content }}</div>
+        </div>
       </div>
-    {% endif %}
+    {% endfor %}
   </div>
-
-  <div class="col-right">
-    <h3>Friends</h3>
-    {% if friends|length == 0 %}
-      <div class="muted">Nenhum amigo ainda.</div>
-    {% else %}
-      <ul class="friends-list">
-        {% for f in friends %}
-          <li>{{ f.display_name }}</li>
-        {% endfor %}
-      </ul>
-    {% endif %}
-  </div>
-</div>
+{% endif %}
 
 {% endblock %}

@@ -1,75 +1,28 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="layout">
-  <div class="col-left">
-    <div class="avatar-placeholder"></div>
-  </div>
+<h2>Friend Requests</h2>
 
-  <div class="col-main">
-    <h2>Friend Requests</h2>
-
-    {% if pending_requests|length == 0 %}
-      <div class="muted">No pending requests.</div>
-    {% else %}
-      <div class="requests">
-        {% for r in pending_requests %}
-          <div class="request-card">
-            <div>
-              <b>{{ r.from_name }}</b> (@{{ r.from_username }}) wants to be your friend.
-            </div>
-            <div class="request-actions">
-              <form method="post" action="{{ url_for('accept_friend_request', msg_id=r.id) }}">
-                <button type="submit">Accept</button>
-              </form>
-              <form method="post" action="{{ url_for('reject_friend_request', msg_id=r.id) }}">
-                <button class="danger" type="submit">Reject</button>
-              </form>
-            </div>
-          </div>
-        {% endfor %}
-      </div>
-    {% endif %}
-  </div>
-
-  <div class="col-right">
-    <div class="sidebox">
-      <div class="sidebox-header">
-        <h3>Friends</h3>
-        <a class="sidebox-link" href="{{ url_for('friends_page') }}">See all friends</a>
-      </div>
-
-      {% if friends_random|length == 0 %}
-        <div class="muted">No friends yet.</div>
-      {% else %}
-        <div class="grid-3">
-          {% for f in friends_random %}
-            <div class="grid-item">
-              <a href="{{ url_for('user_profile', username=f.username) }}" class="grid-link">
-                <div class="friend-avatar"></div>
-                <div class="grid-name">{{ f.display_name }}</div>
-              </a>
-            </div>
-          {% endfor %}
+{% if pending_requests|length == 0 %}
+  <div class="muted">No pending requests.</div>
+{% else %}
+  <div class="requests">
+    {% for r in pending_requests %}
+      <div class="request-card">
+        <div>
+          <b>{{ r.from_name }}</b> (@{{ r.from_username }}) wants to be your friend.
         </div>
-      {% endif %}
-    </div>
-
-    <div class="sidebox">
-      <div class="sidebox-header">
-        <h3>Communities</h3>
+        <div class="request-actions">
+          <form method="post" action="{{ url_for('accept_friend_request', msg_id=r.id) }}">
+            <button type="submit">Accept</button>
+          </form>
+          <form method="post" action="{{ url_for('reject_friend_request', msg_id=r.id) }}">
+            <button class="danger" type="submit">Reject</button>
+          </form>
+        </div>
       </div>
-
-      <div class="grid-3">
-        {% for i in range(12) %}
-          <div class="grid-item">
-            <div class="community-avatar"></div>
-            <div class="grid-name muted">Community</div>
-          </div>
-        {% endfor %}
-      </div>
-    </div>
+    {% endfor %}
   </div>
-</div>
+{% endif %}
 
 {% endblock %}
