@@ -4,93 +4,111 @@
 <div class="layout">
   <div class="col-left">
     {% if community.icon_path %}
-      <img class="avatar-img" src="{{ url_for('static', filename=community.icon_path) }}" alt="Community Icon">
+      <img class="avatar-img" src="{{ url_for('static', filename=community.icon_path) }}" alt="Community">
     {% else %}
       <div class="avatar-placeholder"></div>
     {% endif %}
   </div>
 
   <div class="col-main">
-    <h2>{{ community.name }}</h2>
+    <h2 style="margin-top:0;">{{ community.name }}</h2>
 
-    <div class="muted" style="margin-bottom:10px;">
-      {{ community.description if community.description else "(no description)" }}
+    {% if community.description %}
+      <div class="muted" style="margin-bottom:8px;">{{ community.description }}</div>
+    {% endif %}
+
+    <div class="muted" style="margin-bottom:12px;">
+      created by <b>{{ community.created_by_name }}</b>
     </div>
 
-    <div class="meta-row">
-      <div class="muted">
-        created by <b>{{ community.created_by_name }}</b>
-      </div>
-
-      <div class="membership">
-        {% if is_member %}
-          <span class="badge">You are a member</span>
-          {% if not is_creator %}
-            <form method="post" action="{{ url_for('community_leave', cid=community.id) }}" style="display:inline;">
-              <button class="btn-danger" type="submit" onclick="return confirm('Are you sure you want to leave this community?');">Leave</button>
-            </form>
-          {% endif %}
-        {% else %}
-          <span class="badge-outline">You are not a member of this community</span>
-          <form method="post" action="{{ url_for('community_join', cid=community.id) }}" style="display:inline;">
-            <button type="submit">Join community</button>
+    <div style="margin-bottom:12px;">
+      {% if is_member %}
+        <span class="muted"><b>You are a member</b></span>
+        {% if not is_creator %}
+          <form method="post" action="{{ url_for('community_leave', cid=community.id) }}" style="display:inline;">
+            <button type="submit" class="btn-danger" style="margin-left:10px;"
+                    onclick="return confirm('Are you sure you want to leave this community?');">
+              Leave
+            </button>
           </form>
         {% endif %}
-      </div>
+      {% else %}
+        <span class="muted"><b>You are not a member of this community</b></span>
+        <form method="post" action="{{ url_for('community_join', cid=community.id) }}" style="display:inline;">
+          <button type="submit" style="margin-left:10px;">Join community</button>
+        </form>
+      {% endif %}
     </div>
 
     {% if is_creator %}
-      <div style="margin: 10px 0 14px;">
+      <div style="margin-bottom:14px;">
         <a class="inline-link" href="{{ url_for('edit_community', cid=community.id) }}">Edit community</a>
       </div>
     {% endif %}
 
-    <div class="topics-header">
+    <!-- ✅ Topics header with Create New Topic on the right -->
+    <div class="section-head">
       <h3 style="margin:0;">Topics</h3>
+
       {% if is_member %}
-        <a class="inline-link" href="#" id="openCreateTopic">Create New Topic</a>
-      {% else %}
-        <span class="muted">Join to create topics</span>
+        <form method="post"
+              action="{{ url_for('create_topic_route', cid=community.id) }}"
+              class="topic-create-inline">
+          <input name="title"
+                 class="topic-title-input"
+                 maxlength="80"
+                 placeholder="New topic title..."
+                 required>
+          <button type="submit">Create New Topic</button>
+        </form>
       {% endif %}
     </div>
 
-    {% if topics|length == 0 %}
-      <div class="muted">No topics yet.</div>
-    {% else %}
-      <div class="topic-list">
-        {% for t in topics %}
-          <div class="topic-card">
-            <a class="topic-main" href="{{ url_for('topic_page', cid=community.id, tid=t.id) }}">
-              <div class="topic-title">{{ t.title }}</div>
-              <div class="topic-meta muted">Last update: {{ t.updated_at }}</div>
-            </a>
+    <!-- ✅ Topics list in a separate box -->
+    <div class="panel" style="margin-top:12px;">
+      {% if not is_member %}
+        <div class="muted">Join the community to view and create topics.</div>
 
-            {% if user.id == t.created_by_user_id %}
-              <form method="post"
-                    action="{{ url_for('delete_topic', cid=community.id, tid=t.id) }}"
-                    onsubmit="return confirm('Delete this topic (and all its messages)?');"
-                    class="delete-form">
-                <button type="submit" class="icon-delete" aria-label="Delete topic">X</button>
-              </form>
-            {% endif %}
+      {% else %}
+        {% if topics|length == 0 %}
+          <div class="muted">No topics yet.</div>
+        {% else %}
+          <div class="topic-list">
+            {% for t in topics %}
+              <div class="topic-card">
+                <a href="{{ url_for('topic_page', cid=community.id, tid=t.id) }}" class="topic-link">
+                  <div class="topic-title">{{ t.title }}</div>
+                  <div class="muted">Last update: {{ t.updated_at }}</div>
+                </a>
+
+                {% if user.id == t.created_by_user_id %}
+                  <form method="post"
+                        action="{{ url_for('delete_topic', cid=community.id, tid=t.id) }}"
+                        onsubmit="return confirm('Delete this topic?');"
+                        class="topic-actions">
+                    <button type="submit" class="icon-delete" aria-label="Delete">X</button>
+                  </form>
+                {% endif %}
+              </div>
+            {% endfor %}
           </div>
-        {% endfor %}
-      </div>
 
-      {% if topics_pagination.show %}
-        <div class="pagination">
-          {% if topics_pagination.has_prev %}
-            <a class="page-link" href="{{ url_for('community_page', cid=community.id, page=topics_pagination.prev_page) }}">Prev</a>
+          {% if topics_pagination.show %}
+            <div class="pagination">
+              {% if topics_pagination.has_prev %}
+                <a class="page-link" href="{{ url_for('community_page', cid=community.id, page=topics_pagination.prev_page) }}">Prev</a>
+              {% endif %}
+
+              <span class="page-info">Page {{ topics_pagination.page }} / {{ topics_pagination.total_pages }}</span>
+
+              {% if topics_pagination.has_next %}
+                <a class="page-link" href="{{ url_for('community_page', cid=community.id, page=topics_pagination.next_page) }}">Next</a>
+              {% endif %}
+            </div>
           {% endif %}
-
-          <span class="page-info">Page {{ topics_pagination.page }} / {{ topics_pagination.total_pages }}</span>
-
-          {% if topics_pagination.has_next %}
-            <a class="page-link" href="{{ url_for('community_page', cid=community.id, page=topics_pagination.next_page) }}">Next</a>
-          {% endif %}
-        </div>
+        {% endif %}
       {% endif %}
-    {% endif %}
+    </div>
   </div>
 
   <div class="col-right">
@@ -121,42 +139,5 @@
     </div>
   </div>
 </div>
-
-<!-- Create Topic Modal -->
-<div class="modal-overlay" id="topicModalOverlay" style="display:none;"></div>
-<div class="modal" id="topicModal" style="display:none;">
-  <div class="modal-header">
-    <div class="modal-title">Create New Topic</div>
-    <button type="button" class="modal-close" id="closeCreateTopic">X</button>
-  </div>
-
-  <form method="post" action="{{ url_for('create_topic_route', cid=community.id) }}">
-    <label>Topic title</label>
-    <input name="title" maxlength="80" placeholder="Type a topic name..." required>
-
-    <div class="row-actions">
-      <button type="submit">Save</button>
-      <button type="button" class="btn-danger" id="cancelCreateTopic">Cancel</button>
-    </div>
-  </form>
-</div>
-
-<script>
-  const openTopicBtn = document.getElementById("openCreateTopic");
-  const closeTopicBtn = document.getElementById("closeCreateTopic");
-  const cancelTopicBtn = document.getElementById("cancelCreateTopic");
-  const topicOverlay = document.getElementById("topicModalOverlay");
-  const topicModal = document.getElementById("topicModal");
-
-  function openTopicModal() { topicOverlay.style.display = "block"; topicModal.style.display = "block"; }
-  function closeTopicModal() { topicOverlay.style.display = "none"; topicModal.style.display = "none"; }
-
-  if (openTopicBtn) {
-    openTopicBtn.addEventListener("click", (e) => { e.preventDefault(); openTopicModal(); });
-  }
-  closeTopicBtn.addEventListener("click", closeTopicModal);
-  cancelTopicBtn.addEventListener("click", closeTopicModal);
-  topicOverlay.addEventListener("click", closeTopicModal);
-</script>
 
 {% endblock %}

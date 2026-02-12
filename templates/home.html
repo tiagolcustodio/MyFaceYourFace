@@ -11,50 +11,58 @@
   </div>
 
   <div class="col-main">
-    <h2>Hello {{ user.display_name }}</h2>
+    <h2>Home</h2>
 
     <div class="summary">
-      {% if pending_requests_count and pending_requests_count > 0 %}
-        <div>
-          You have <b>friend requests ({{ pending_requests_count }})</b>
-          — <a class="inline-link" href="{{ url_for('friend_requests') }}">view</a>
-        </div>
+      <div><b>Hello {{ user.display_name }}</b></div>
+
+      {% if messages_unread_count > 0 %}
+        <div>You have messages ({{ messages_unread_count }})</div>
       {% endif %}
 
-      {% if messages_unread_count and messages_unread_count > 0 %}
-        <div>
-          You have <b>messages ({{ messages_unread_count }})</b>
-          — <a class="inline-link" href="{{ url_for('messages') }}">view</a>
-        </div>
+      {% if pending_requests_count > 0 %}
+        <div>You have friend requests ({{ pending_requests_count }}) — <a class="inline-link" href="{{ url_for('friend_requests') }}">View</a></div>
       {% endif %}
     </div>
 
     <h3>People you may know:</h3>
 
-    <div class="user-list">
-      {% for u in user_cards %}
-        <div class="user-card">
-          <div class="mini-avatar"></div>
-          <div class="user-info">
-            <div class="user-name">{{ u.display_name }}</div>
-            <div class="user-handle">@{{ u.username }}</div>
+    {% if user_cards|length == 0 %}
+      <div class="muted">No suggestions right now.</div>
+    {% else %}
+      <div class="user-list">
+        {% for u in user_cards %}
+          <div class="user-card">
+            <div class="mini-avatar"></div>
+            <div>
+              <div class="user-name">{{ u.display_name }}</div>
+              <div class="user-handle">@{{ u.username }}</div>
+            </div>
+            <div>
+              {% if u.can_request %}
+                <form method="post" action="{{ url_for('send_friend_request', to_user_id=u.id) }}">
+                  <button type="submit">{{ u.label }}</button>
+                </form>
+              {% else %}
+                <button class="disabled" type="button">{{ u.label }}</button>
+              {% endif %}
+            </div>
           </div>
-          <div class="user-action">
-            {% if u.can_request %}
-              <form method="post" action="{{ url_for('send_friend_request', to_user_id=u.id) }}">
-                <button type="submit">Add friend</button>
-              </form>
-            {% else %}
-              <button class="disabled" disabled>{{ u.label }}</button>
-            {% endif %}
-          </div>
-        </div>
-      {% endfor %}
+        {% endfor %}
+      </div>
+    {% endif %}
 
-      {% if user_cards|length == 0 %}
-        <div class="muted">No suggestions right now.</div>
-      {% endif %}
-    </div>
+    {% if recent_activities and recent_activities|length > 0 %}
+      <div class="panel" style="margin-top:16px;">
+        <h3 style="margin-top:0;">Recent Activities</h3>
+        <div class="activities">
+          {% for a in recent_activities %}
+            <div class="activity-item">{{ a.text }}</div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
   </div>
 
   <div class="col-right">

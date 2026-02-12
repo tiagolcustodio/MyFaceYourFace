@@ -1,12 +1,42 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2>Friends</h2>
+<div class="page-head">
+  <h2 style="margin:0;">Friends</h2>
+
+  <div class="invite-row">
+    <form method="post" action="{{ url_for('invites_create') }}" style="display:inline;">
+      <button type="submit" class="btn-invite-link">Invite ({{ invites_remaining }})</button>
+    </form>
+  </div>
+</div>
+
+{% if invite_link %}
+  <div class="panel" style="margin-top:12px;">
+    <div style="font-weight:900; margin-bottom:8px;">Invite link</div>
+    <div class="invite-box">
+      <input id="inviteInput" value="{{ invite_link }}" readonly>
+      <button type="button" onclick="copyInvite()">Copy</button>
+    </div>
+    <div class="muted" style="margin-top:8px;">
+      Share this link with your friend. It will stop working after the profile is created.
+    </div>
+  </div>
+
+  <script>
+    function copyInvite(){
+      const el = document.getElementById("inviteInput");
+      el.select();
+      el.setSelectionRange(0, 99999);
+      navigator.clipboard.writeText(el.value);
+    }
+  </script>
+{% endif %}
 
 {% if friends|length == 0 %}
-  <div class="muted">You have no friends yet.</div>
+  <div class="muted" style="margin-top:14px;">No friends yet.</div>
 {% else %}
-  <div class="grid-4">
+  <div class="grid-4" style="margin-top:14px;">
     {% for f in friends %}
       <div class="grid-item big">
         <a href="{{ url_for('user_profile', username=f.username) }}" class="grid-link">
@@ -23,7 +53,7 @@
               action="{{ url_for('unfriend', username=f.username) }}"
               onsubmit="return confirm('Are you sure you want to unfriend this person?');"
               style="margin-top:10px;">
-          <button class="btn-danger" type="submit">Unfriend</button>
+          <button type="submit" class="btn-danger">Unfriend</button>
         </form>
       </div>
     {% endfor %}

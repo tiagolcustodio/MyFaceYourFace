@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{{ app_name }} - Create New Profile</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="container" style="max-width:900px;">
+  <div class="panel" style="margin-top:20px;">
+    <h2 style="margin-top:0;">Create New Profile</h2>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash">
+          {% for m in messages %}<div>{{ m }}</div>{% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% if invalid %}
+      <div class="muted">Invalid invite link.</div>
+    {% elif already_used %}
+      <div class="muted">This invite link has already been used.</div>
+    {% elif no_invites %}
+      <div class="muted">This inviter has no invites remaining.</div>
+    {% else %}
+      <div class="muted" style="margin-bottom:12px;">
+        Invited by <b>{{ inviter_name }}</b> (@{{ inviter_username }})
+      </div>
+
+      <form method="post" action="{{ url_for('create_profile_from_invite_post', token=token) }}" enctype="multipart/form-data">
+        <label>Upload Profile Picture (PNG/JPG)</label>
+        <input type="file" name="profile_pic" accept=".png,.jpg,.jpeg">
+
+        <label>Username</label>
+        <input name="username" maxlength="20" placeholder="Choose a username..." required>
+
+        <label>Password</label>
+        <input type="password" name="password" placeholder="Min 8, upper + lower + symbol" required>
+
+        <label>Confirm password</label>
+        <input type="password" name="password2" required>
+
+        <hr class="soft-hr">
+
+        <label>Name</label>
+        <input name="display_name" placeholder="Your name..." required>
+
+        <label>Description</label>
+        <textarea name="description" rows="4" maxlength="500" placeholder="Write a short description..."></textarea>
+
+        <hr class="soft-hr">
+
+        <label>Birthdate</label>
+        <input type="date" name="birthdate">
+
+        <label>Sex</label>
+        <div class="radio-group">
+          {% for opt in sex_options %}
+            <label class="radio-item">
+              <input type="radio" name="sex" value="{{ opt }}">
+              <span>{{ opt }}</span>
+            </label>
+          {% endfor %}
+        </div>
+
+        <label>Sexual orientation</label>
+        <div class="radio-group">
+          {% for opt in orientation_options %}
+            <label class="radio-item">
+              <input type="radio" name="sexual_orientation" value="{{ opt }}">
+              <span>{{ opt }}</span>
+            </label>
+          {% endfor %}
+        </div>
+
+        <label>Relationship</label>
+        <div class="radio-group">
+          {% for opt in relationship_options %}
+            <label class="radio-item">
+              <input type="radio" name="relationship_status" value="{{ opt }}">
+              <span>{{ opt }}</span>
+            </label>
+          {% endfor %}
+        </div>
+
+        <label>Political orientation</label>
+        <div class="radio-group">
+          {% for opt in politics_options %}
+            <label class="radio-item">
+              <input type="radio" name="political_orientation" value="{{ opt }}">
+              <span>{{ opt }}</span>
+            </label>
+          {% endfor %}
+        </div>
+
+        <label>Favorite team</label>
+        <input name="favorite_team" maxlength="80" placeholder="Type your favorite team...">
+
+        <label>Main hobby</label>
+        <input name="main_hobby" maxlength="80" placeholder="Type your main hobby...">
+
+        <div class="row-actions">
+          <button type="submit">Save</button>
+          <a class="inline-link" href="{{ url_for('login') }}">Back to login</a>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+</body>
+</html>

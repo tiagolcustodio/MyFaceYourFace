@@ -3,6 +3,8 @@ import sqlite3
 from datetime import datetime
 from functools import wraps
 import math
+import secrets
+import re
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash, g, abort
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -27,6 +29,9 @@ SEX_OPTIONS = ["male", "female", "other"]
 ORIENTATION_OPTIONS = ["lesbian", "gay", "bisexual", "transgender", "queer", "intersex", "asexual", "other"]
 RELATIONSHIP_OPTIONS = ["single", "dating", "open", "married"]
 POLITICS_OPTIONS = ["far-left", "left", "center-left", "center", "center-right", "right", "far-right"]
+
+DEFAULT_INVITES = 5
+DEFAULT_INVITES_ADMIN = 15
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
@@ -168,6 +173,17 @@ def init_db():
             FOREIGN KEY(topic_id) REFERENCES community_topics(id),
             FOREIGN KEY(from_user_id) REFERENCES users(id)
         );
+
+        CREATE TABLE IF NOT EXISTS invite_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            token TEXT UNIQUE NOT NULL,
+            inviter_user_id INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            used_at TEXT DEFAULT NULL,
+            used_by_user_id INTEGER DEFAULT NULL,
+            FOREIGN KEY(inviter_user_id) REFERENCES users(id),
+            FOREIGN KEY(used_by_user_id) REFERENCES users(id)
+        );
         """
     )
     db.commit()
@@ -177,7 +193,7 @@ def init_db():
     add_column_if_missing("messages", "read_at", "ALTER TABLE messages ADD COLUMN read_at TEXT DEFAULT NULL")
     add_column_if_missing("users", "profile_pic_path", "ALTER TABLE users ADD COLUMN profile_pic_path TEXT DEFAULT NULL")
 
-    # ✅ new profile fields
+    # profile fields
     add_column_if_missing("users", "birthdate", "ALTER TABLE users ADD COLUMN birthdate TEXT DEFAULT NULL")
     add_column_if_missing("users", "sex", "ALTER TABLE users ADD COLUMN sex TEXT DEFAULT NULL")
     add_column_if_missing("users", "sexual_orientation", "ALTER TABLE users ADD COLUMN sexual_orientation TEXT DEFAULT NULL")
@@ -186,22 +202,39 @@ def init_db():
     add_column_if_missing("users", "favorite_team", "ALTER TABLE users ADD COLUMN favorite_team TEXT DEFAULT NULL")
     add_column_if_missing("users", "main_hobby", "ALTER TABLE users ADD COLUMN main_hobby TEXT DEFAULT NULL")
 
+    # ✅ invites
+    add_column_if_missing("users", "invites_remaining", "ALTER TABLE users ADD COLUMN invites_remaining INTEGER DEFAULT 5")
+
 
 def seed_default_users():
     db = get_db()
 
-    def ensure_user(username, password, display_name, description=""):
+    def ensure_user(username, password, display_name, description="", invites=DEFAULT_INVITES):
         row = db.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
         if row:
+            # ensure invites set if null/0 for existing records
+            db.execute(
+                """
+                UPDATE users
+                SET invites_remaining = COALESCE(invites_remaining, ?)
+                WHERE username = ?
+                """,
+                (invites, username),
+            )
+            db.commit()
             return
+
         db.execute(
-            "INSERT INTO users (username, password_hash, display_name, description) VALUES (?, ?, ?, ?)",
-            (username, generate_password_hash(password), display_name, description),
+            """
+            INSERT INTO users (username, password_hash, display_name, description, invites_remaining)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (username, generate_password_hash(password), display_name, description, invites),
         )
         db.commit()
 
-    ensure_user(DEFAULT_ADMIN_USER, DEFAULT_ADMIN_PASS, "Admin", "Administrative account.")
-    ensure_user(DEFAULT_Tiago_USER, DEFAULT_Tiago_PASS, "Tiago Luis Custódio", "Test account.")
+    ensure_user(DEFAULT_ADMIN_USER, DEFAULT_ADMIN_PASS, "Admin", "Administrative account.", invites=DEFAULT_INVITES_ADMIN)
+    ensure_user(DEFAULT_Tiago_USER, DEFAULT_Tiago_PASS, "Tiago Luis Custódio", "Test account.", invites=DEFAULT_INVITES)
 
 
 @app.before_request
@@ -636,6 +669,84 @@ def add_topic_message(topic_id: int, from_user_id: int, content: str):
 
 
 # -----------------------------
+# Helpers (invites)
+# -----------------------------
+def get_invites_remaining(user_id: int) -> int:
+    db = get_db()
+    row = db.execute("SELECT invites_remaining FROM users WHERE id = ?", (user_id,)).fetchone()
+    return int(row["invites_remaining"] or 0)
+
+
+def create_invite_token(inviter_user_id: int) -> str:
+    token = secrets.token_urlsafe(24)
+    db = get_db()
+    db.execute(
+        "INSERT INTO invite_tokens (token, inviter_user_id, created_at) VALUES (?, ?, ?)",
+        (token, inviter_user_id, datetime.utcnow().isoformat()),
+    )
+    db.commit()
+    return token
+
+
+def get_invite(token: str):
+    db = get_db()
+    return db.execute(
+        """
+        SELECT it.*, u.display_name AS inviter_name, u.username AS inviter_username, u.invites_remaining AS inviter_invites
+        FROM invite_tokens it
+        JOIN users u ON u.id = it.inviter_user_id
+        WHERE it.token = ?
+        """,
+        (token,),
+    ).fetchone()
+
+
+def mark_invite_used(token: str, used_by_user_id: int):
+    db = get_db()
+    db.execute(
+        "UPDATE invite_tokens SET used_at = ?, used_by_user_id = ? WHERE token = ?",
+        (datetime.utcnow().isoformat(), used_by_user_id, token),
+    )
+    db.commit()
+
+
+def decrement_invites(inviter_user_id: int):
+    db = get_db()
+    db.execute(
+        """
+        UPDATE users
+        SET invites_remaining = CASE WHEN invites_remaining > 0 THEN invites_remaining - 1 ELSE 0 END
+        WHERE id = ?
+        """,
+        (inviter_user_id,),
+    )
+    db.commit()
+
+
+def validate_username(username: str) -> str | None:
+    if not username:
+        return "Username is required."
+    if len(username) < 3 or len(username) > 20:
+        return "Username must be 3 to 20 characters."
+    if not re.fullmatch(r"[a-zA-Z0-9_]+", username):
+        return "Username can only contain letters, numbers and underscore."
+    return None
+
+
+def validate_password(pw: str) -> str | None:
+    # at least 8, one lower, one upper, one symbol
+    if not pw or len(pw) < 8:
+        return "Password must be at least 8 characters."
+    if not re.search(r"[a-z]", pw):
+        return "Password must contain a lowercase letter."
+    if not re.search(r"[A-Z]", pw):
+        return "Password must contain an uppercase letter."
+    if not re.search(r"[^a-zA-Z0-9]", pw):
+        return "Password must contain a symbol."
+    return None
+
+
+# -----------------------------
 # Routes
 # -----------------------------
 @app.get("/")
@@ -670,6 +781,70 @@ def login_post():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+
+def _recent_activities_for_home(viewer_id: int):
+    """
+    - friend message received: "{Friend} has received a message from {Sender} (timestamp)"
+      (only for viewer's friends)
+    - community activity: "{Community} had activity (timestamp)"
+      (only for communities where viewer is a member)
+    max 5 combined, sorted desc
+    """
+    db = get_db()
+
+    friend_ids = [r["id"] for r in list_friends(viewer_id)]
+    activities = []
+
+    if friend_ids:
+        q_marks = ",".join(["?"] * len(friend_ids))
+        rows = db.execute(
+            f"""
+            SELECT m.created_at, fu.display_name AS to_name, su.display_name AS from_name
+            FROM messages m
+            JOIN users fu ON fu.id = m.to_user_id
+            JOIN users su ON su.id = m.from_user_id
+            WHERE m.type = 'message' AND m.to_user_id IN ({q_marks})
+            ORDER BY m.created_at DESC
+            LIMIT 10
+            """,
+            tuple(friend_ids),
+        ).fetchall()
+
+        for r in rows:
+            activities.append(
+                {
+                    "ts": r["created_at"],
+                    "text": f"{r['to_name']} has received a message from {r['from_name']} ({r['created_at']})",
+                }
+            )
+
+    comm_rows = db.execute(
+        """
+        SELECT c.id AS community_id, c.name AS community_name, MAX(tm.created_at) AS last_ts
+        FROM community_members cm
+        JOIN communities c ON c.id = cm.community_id
+        JOIN community_topics t ON t.community_id = c.id
+        JOIN topic_messages tm ON tm.topic_id = t.id
+        WHERE cm.user_id = ?
+        GROUP BY c.id, c.name
+        ORDER BY last_ts DESC
+        LIMIT 10
+        """,
+        (viewer_id,),
+    ).fetchall()
+
+    for r in comm_rows:
+        activities.append(
+            {
+                "ts": r["last_ts"],
+                "text": f"{r['community_name']} had activity ({r['last_ts']})",
+            }
+        )
+
+    # sort by ts desc and pick top 5
+    activities.sort(key=lambda x: x["ts"] or "", reverse=True)
+    return activities[:5]
 
 
 @app.get("/home")
@@ -714,6 +889,8 @@ def home():
             }
         )
 
+    recent_activities = _recent_activities_for_home(user["id"])
+
     return render_template(
         "home.html",
         app_name=APP_NAME,
@@ -724,6 +901,7 @@ def home():
         friends_random=friends_random,
         communities_random=communities_random,
         user_cards=cards,
+        recent_activities=recent_activities,
     )
 
 
@@ -846,7 +1024,6 @@ def user_profile(username):
     if not profile_user:
         abort(404)
 
-    # viewing profile counts as read
     mark_inbox_read(viewer["id"])
 
     pending_requests_count = count_pending_friend_requests(viewer["id"])
@@ -918,7 +1095,6 @@ def post_message(username):
     return redirect(url_for("user_profile", username=username))
 
 
-# ✅ delete profile/inbox message
 @app.post("/messages/<int:message_id>/delete")
 @login_required
 def delete_profile_message(message_id):
@@ -936,19 +1112,16 @@ def delete_profile_message(message_id):
     if not msg:
         abort(404)
 
-    # permission: profile owner (recipient) OR message author
     if viewer["id"] not in (msg["to_user_id"], msg["from_user_id"]):
         abort(403)
 
     db.execute("DELETE FROM messages WHERE id = ?", (message_id,))
     db.commit()
 
-    # redirect back where user came from
     ref = request.form.get("redirect_to")
     if ref:
         return redirect(ref)
 
-    # fallback
     return redirect(url_for("messages"))
 
 
@@ -990,7 +1163,6 @@ def edit_profile_post():
         flash("Name cannot be empty.")
         return redirect(url_for("edit_profile"))
 
-    # validate radios if provided
     if sex and sex not in SEX_OPTIONS:
         flash("Invalid sex option.")
         return redirect(url_for("edit_profile"))
@@ -1056,15 +1228,176 @@ def edit_profile_post():
 def friends_page():
     user = current_user()
     friends = list_friends(user["id"])
+    invites_remaining = get_invites_remaining(user["id"])
+
+    invite_link = session.pop("last_invite_link", None)
+
     return render_template(
         "friends.html",
         app_name=APP_NAME,
         user=user,
         friends=friends,
+        invites_remaining=invites_remaining,
+        invite_link=invite_link,
         pending_requests_count=count_pending_friend_requests(user["id"]),
         messages_total_count=count_messages_total(user["id"]),
         messages_unread_count=count_messages_unread(user["id"]),
     )
+
+
+@app.post("/invites/create")
+@login_required
+def invites_create():
+    user = current_user()
+    remaining = get_invites_remaining(user["id"])
+    if remaining <= 0:
+        flash("You have no invites remaining.")
+        return redirect(url_for("friends_page"))
+
+    token = create_invite_token(user["id"])
+    link = url_for("create_profile_from_invite", token=token, _external=True)
+
+    session["last_invite_link"] = link
+    flash("Invite link generated.")
+    return redirect(url_for("friends_page"))
+
+
+@app.get("/invite/<token>")
+def create_profile_from_invite(token):
+    inv = get_invite(token)
+    if not inv:
+        return render_template("create_profile.html", app_name=APP_NAME, invalid=True)
+
+    if inv["used_at"] is not None:
+        return render_template("create_profile.html", app_name=APP_NAME, already_used=True)
+
+    if int(inv["inviter_invites"] or 0) <= 0:
+        return render_template("create_profile.html", app_name=APP_NAME, no_invites=True)
+
+    return render_template(
+        "create_profile.html",
+        app_name=APP_NAME,
+        token=token,
+        inviter_name=inv["inviter_name"],
+        inviter_username=inv["inviter_username"],
+        sex_options=SEX_OPTIONS,
+        orientation_options=ORIENTATION_OPTIONS,
+        relationship_options=RELATIONSHIP_OPTIONS,
+        politics_options=POLITICS_OPTIONS,
+    )
+
+
+@app.post("/invite/<token>")
+def create_profile_from_invite_post(token):
+    inv = get_invite(token)
+    if not inv:
+        flash("Invalid invite link.")
+        return redirect(url_for("login"))
+
+    if inv["used_at"] is not None:
+        flash("This invite link has already been used.")
+        return redirect(url_for("login"))
+
+    inviter_id = int(inv["inviter_user_id"])
+    inviter_remaining = int(inv["inviter_invites"] or 0)
+    if inviter_remaining <= 0:
+        flash("This inviter has no invites remaining.")
+        return redirect(url_for("login"))
+
+    username = (request.form.get("username") or "").strip()
+    pw1 = request.form.get("password") or ""
+    pw2 = request.form.get("password2") or ""
+
+    display_name = (request.form.get("display_name") or "").strip()
+    desc = (request.form.get("description") or "").strip()
+
+    birthdate = (request.form.get("birthdate") or "").strip() or None
+    sex = (request.form.get("sex") or "").strip() or None
+    orientation = (request.form.get("sexual_orientation") or "").strip() or None
+    relationship = (request.form.get("relationship_status") or "").strip() or None
+    politics = (request.form.get("political_orientation") or "").strip() or None
+    favorite_team = (request.form.get("favorite_team") or "").strip() or None
+    main_hobby = (request.form.get("main_hobby") or "").strip() or None
+
+    err = validate_username(username)
+    if err:
+        flash(err)
+        return redirect(url_for("create_profile_from_invite", token=token))
+
+    perr = validate_password(pw1)
+    if perr:
+        flash(perr)
+        return redirect(url_for("create_profile_from_invite", token=token))
+
+    if pw1 != pw2:
+        flash("Passwords do not match.")
+        return redirect(url_for("create_profile_from_invite", token=token))
+
+    if not display_name:
+        flash("Name is required.")
+        return redirect(url_for("create_profile_from_invite", token=token))
+
+    if sex and sex not in SEX_OPTIONS:
+        flash("Invalid sex option.")
+        return redirect(url_for("create_profile_from_invite", token=token))
+    if orientation and orientation not in ORIENTATION_OPTIONS:
+        flash("Invalid orientation option.")
+        return redirect(url_for("create_profile_from_invite", token=token))
+    if relationship and relationship not in RELATIONSHIP_OPTIONS:
+        flash("Invalid relationship option.")
+        return redirect(url_for("create_profile_from_invite", token=token))
+    if politics and politics not in POLITICS_OPTIONS:
+        flash("Invalid political option.")
+        return redirect(url_for("create_profile_from_invite", token=token))
+
+    pic = request.files.get("profile_pic")
+    rel_path = None
+    if pic and pic.filename:
+        rel_path = save_upload(pic, "profiles", prefix=f"invited_user")
+        if rel_path is None:
+            flash("Invalid file. Please upload PNG or JPG.")
+            return redirect(url_for("create_profile_from_invite", token=token))
+
+    db = get_db()
+    existing = db.execute("SELECT 1 FROM users WHERE username = ?", (username,)).fetchone()
+    if existing:
+        flash("Username already taken.")
+        return redirect(url_for("create_profile_from_invite", token=token))
+
+    # Create new user
+    pw_hash = generate_password_hash(pw1)
+    db.execute(
+        """
+        INSERT INTO users (
+          username, password_hash, display_name, description,
+          profile_pic_path,
+          birthdate, sex, sexual_orientation, relationship_status,
+          political_orientation, favorite_team, main_hobby,
+          invites_remaining
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            username, pw_hash, display_name, desc,
+            rel_path,
+            birthdate, sex, orientation, relationship,
+            politics, favorite_team, main_hobby,
+            DEFAULT_INVITES,  # invited users start with 5 (same rule)
+        ),
+    )
+    db.commit()
+
+    new_user_id = db.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()["id"]
+
+    # Mark invite used + decrement inviter invites
+    mark_invite_used(token, new_user_id)
+    decrement_invites(inviter_id)
+
+    # Auto-friend with inviter
+    make_friendship(inviter_id, new_user_id)
+
+    flash("Profile created! You can login now.")
+    return redirect(url_for("login"))
 
 
 @app.post("/friends/unfriend/<username>")
@@ -1102,7 +1435,7 @@ def messages():
 
 
 # -----------------------------
-# Communities
+# Communities (unchanged routes below here except already in your version)
 # -----------------------------
 @app.get("/communities")
 @login_required
@@ -1150,7 +1483,6 @@ def create_community_route():
     )
     db.commit()
 
-    # creator always becomes a member ✅
     community_id = db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
     add_member(user["id"], community_id)
 
@@ -1359,7 +1691,6 @@ def create_topic_route(cid):
     return redirect(url_for("community_page", cid=cid))
 
 
-# ✅ delete topic (only topic creator)
 @app.post("/c/<int:cid>/topics/<int:tid>/delete")
 @login_required
 def delete_topic(cid, tid):
@@ -1445,7 +1776,6 @@ def post_topic_message(cid, tid):
     return redirect(url_for("topic_page", cid=cid, tid=tid))
 
 
-# ✅ delete topic message (only author OR topic creator)
 @app.post("/c/<int:cid>/t/<int:tid>/messages/<int:mid>/delete")
 @login_required
 def delete_topic_message(cid, tid, mid):

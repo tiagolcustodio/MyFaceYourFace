@@ -17,21 +17,24 @@
   </div>
 
   <div class="col-main">
-    <h2>{{ profile_user.display_name }}</h2>
+    <h2>Profile</h2>
 
     <div class="profile-box">
       <div><b>Name:</b> {{ profile_user.display_name }}</div>
       <div><b>Username:</b> @{{ profile_user.username }}</div>
-      <div><b>Description:</b> {{ profile_user.description if profile_user.description else "(no description)" }}</div>
+
+      {% if profile_user.description %}
+        <div><b>Description:</b> {{ profile_user.description }}</div>
+      {% endif %}
 
       <div class="profile-grid" style="margin-top:10px;">
-        <div><b>Birthdate:</b> {{ profile_user.birthdate if profile_user.birthdate else " " }}</div>
-        <div><b>Sex:</b> {{ profile_user.sex if profile_user.sex else " " }}</div>
-        <div><b>Sexual orientation:</b> {{ profile_user.sexual_orientation if profile_user.sexual_orientation else " " }}</div>
-        <div><b>Relationship:</b> {{ profile_user.relationship_status if profile_user.relationship_status else " " }}</div>
-        <div><b>Political orientation:</b> {{ profile_user.political_orientation if profile_user.political_orientation else " " }}</div>
-        <div><b>Favorite team:</b> {{ profile_user.favorite_team if profile_user.favorite_team else " " }}</div>
-        <div><b>Main hobby:</b> {{ profile_user.main_hobby if profile_user.main_hobby else " " }}</div>
+        {% if profile_user.birthdate %}<div><b>Birthdate:</b> {{ profile_user.birthdate }}</div>{% endif %}
+        {% if profile_user.sex %}<div><b>Sex:</b> {{ profile_user.sex }}</div>{% endif %}
+        {% if profile_user.sexual_orientation %}<div><b>Sexual orientation:</b> {{ profile_user.sexual_orientation }}</div>{% endif %}
+        {% if profile_user.relationship_status %}<div><b>Relationship:</b> {{ profile_user.relationship_status }}</div>{% endif %}
+        {% if profile_user.political_orientation %}<div><b>Political orientation:</b> {{ profile_user.political_orientation }}</div>{% endif %}
+        {% if profile_user.favorite_team %}<div><b>Favorite team:</b> {{ profile_user.favorite_team }}</div>{% endif %}
+        {% if profile_user.main_hobby %}<div><b>Main hobby:</b> {{ profile_user.main_hobby }}</div>{% endif %}
       </div>
     </div>
 
