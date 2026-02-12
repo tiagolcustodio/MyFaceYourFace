@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Members of {{ community.name }}</h2>
+
+{% if members|length == 0 %}
+  <div class="muted">No members yet.</div>
+{% else %}
+  <div class="grid-4" style="margin-top:12px;">
+    {% for m in members %}
+      <div class="grid-item big">
+        <a href="{{ url_for('user_profile', username=m.username) }}" class="grid-link">
+          {% if m.profile_pic_path %}
+            <img class="square-img big" src="{{ url_for('static', filename=m.profile_pic_path) }}" alt="Member">
+          {% else %}
+            <div class="friend-avatar big"></div>
+          {% endif %}
+          <div class="grid-name">{{ m.display_name }}</div>
+          <div class="muted">@{{ m.username }}</div>
+        </a>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{% endblock %}

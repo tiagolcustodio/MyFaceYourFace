@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="layout">
+  <div class="col-left">
+    {% if community.icon_path %}
+      <img class="avatar-img" src="{{ url_for('static', filename=community.icon_path) }}" alt="Community Icon">
+    {% else %}
+      <div class="avatar-placeholder"></div>
+    {% endif %}
+  </div>
+
+  <div class="col-main">
+    <div class="crumbs">
+      <a class="inline-link" href="{{ url_for('community_page', cid=community.id) }}">{{ community.name }}</a>
+      <span class="muted">/</span>
+      <span><b>{{ topic.title }}</b></span>
+    </div>
+
+    {% if is_member %}
+      <div class="message-compose" style="margin-top:12px;">
+        <h3>Post a message</h3>
+        <form method="post" action="{{ url_for('post_topic_message', cid=community.id, tid=topic.id) }}">
+          <textarea name="content" rows="3" maxlength="500" placeholder="Write something..."></textarea>
+          <div class="compose-actions">
+            <button type="submit">Send</button>
+          </div>
+        </form>
+      </div>
+    {% else %}
+      <div class="muted" style="margin-top:12px;">
+        Only members can post messages in this topic.
+      </div>
+    {% endif %}
+
+    <h3 style="margin-top:16px;">Messages</h3>
+
+    {% if messages|length == 0 %}
+      <div class="muted">No messages yet.</div>
+    {% else %}
+      <div class="wall">
+        {% for m in messages %}
+          <div class="wall-item">
+            <div class="wall-left">
+              <a href="{{ url_for('user_profile', username=m.from_username) }}" class="avatar-link">
+                {% if m.from_pic %}
+                  <img class="wall-avatar-img" src="{{ url_for('static', filename=m.from_pic) }}" alt="Sender">
+                {% else %}
+                  <div class="wall-avatar"></div>
+                {% endif %}
+                <div class="wall-name">{{ m.from_name }}</div>
+              </a>
+            </div>
+            <div class="wall-right">
+              <div class="wall-bubble">{{ m.content }}</div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="col-right">
+    <div class="sidebox">
+      <div class="sidebox-header">
+        <h3>Members</h3>
+        <a class="sidebox-link" href="{{ url_for('community_members', cid=community.id) }}">View all members</a>
+      </div>
+
+      {% if members_random|length == 0 %}
+        <div class="muted">No members yet.</div>
+      {% else %}
+        <div class="grid-3">
+          {% for m in members_random %}
+            <div class="grid-item">
+              <a href="{{ url_for('user_profile', username=m.username) }}" class="grid-link">
+                {% if m.profile_pic_path %}
+                  <img class="square-img" src="{{ url_for('static', filename=m.profile_pic_path) }}" alt="Member">
+                {% else %}
+                  <div class="friend-avatar"></div>
+                {% endif %}
+                <div class="grid-name">{{ m.display_name }}</div>
+              </a>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

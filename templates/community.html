@@ -12,18 +12,126 @@
 
   <div class="col-main">
     <h2>{{ community.name }}</h2>
-    <div class="muted" style="margin-bottom:12px;">
+
+    <div class="muted" style="margin-bottom:10px;">
       {{ community.description if community.description else "(no description)" }}
     </div>
 
-    <div class="profile-box">
-      created by <b>{{ community.created_by_name }}</b>
+    <div class="meta-row">
+      <div class="muted">
+        created by <b>{{ community.created_by_name }}</b>
+      </div>
+
+      <div class="membership">
+        {% if is_member %}
+          <span class="badge">You are a member</span>
+          {% if not is_creator %}
+            <form method="post" action="{{ url_for('community_leave', cid=community.id) }}" style="display:inline;">
+              <button class="btn-danger" type="submit" onclick="return confirm('Are you sure you want to leave this community?');">Leave</button>
+            </form>
+          {% endif %}
+        {% else %}
+          <span class="badge-outline">You are not a member of this community</span>
+          <form method="post" action="{{ url_for('community_join', cid=community.id) }}" style="display:inline;">
+            <button type="submit">Join community</button>
+          </form>
+        {% endif %}
+      </div>
     </div>
+
+    {% if is_creator %}
+      <div style="margin: 10px 0 14px;">
+        <a class="inline-link" href="{{ url_for('edit_community', cid=community.id) }}">Edit community</a>
+      </div>
+    {% endif %}
+
+    <div class="topics-header">
+      <h3 style="margin:0;">Topics</h3>
+      {% if is_member %}
+        <a class="inline-link" href="#" id="openCreateTopic">Create New Topic</a>
+      {% else %}
+        <span class="muted">Join to create topics</span>
+      {% endif %}
+    </div>
+
+    {% if topics|length == 0 %}
+      <div class="muted">No topics yet.</div>
+    {% else %}
+      <div class="topic-list">
+        {% for t in topics %}
+          <a class="topic-card" href="{{ url_for('topic_page', cid=community.id, tid=t.id) }}">
+            <div class="topic-title">{{ t.title }}</div>
+            <div class="topic-meta muted">Last update: {{ t.updated_at }}</div>
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
   </div>
 
   <div class="col-right">
-    <div class="muted">Community features coming soon.</div>
+    <div class="sidebox">
+      <div class="sidebox-header">
+        <h3>Members</h3>
+        <a class="sidebox-link" href="{{ url_for('community_members', cid=community.id) }}">View all members</a>
+      </div>
+
+      {% if members_random|length == 0 %}
+        <div class="muted">No members yet.</div>
+      {% else %}
+        <div class="grid-3">
+          {% for m in members_random %}
+            <div class="grid-item">
+              <a href="{{ url_for('user_profile', username=m.username) }}" class="grid-link">
+                {% if m.profile_pic_path %}
+                  <img class="square-img" src="{{ url_for('static', filename=m.profile_pic_path) }}" alt="Member">
+                {% else %}
+                  <div class="friend-avatar"></div>
+                {% endif %}
+                <div class="grid-name">{{ m.display_name }}</div>
+              </a>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
   </div>
 </div>
+
+<!-- Create Topic Modal -->
+<div class="modal-overlay" id="topicModalOverlay" style="display:none;"></div>
+<div class="modal" id="topicModal" style="display:none;">
+  <div class="modal-header">
+    <div class="modal-title">Create New Topic</div>
+    <button type="button" class="modal-close" id="closeCreateTopic">X</button>
+  </div>
+
+  <form method="post" action="{{ url_for('create_topic_route', cid=community.id) }}">
+    <label>Topic title</label>
+    <input name="title" maxlength="80" placeholder="Type a topic name..." required>
+
+    <div class="row-actions">
+      <button type="submit">Save</button>
+      <button type="button" class="btn-danger" id="cancelCreateTopic">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  const openTopicBtn = document.getElementById("openCreateTopic");
+  const closeTopicBtn = document.getElementById("closeCreateTopic");
+  const cancelTopicBtn = document.getElementById("cancelCreateTopic");
+  const topicOverlay = document.getElementById("topicModalOverlay");
+  const topicModal = document.getElementById("topicModal");
+
+  function openTopicModal() { topicOverlay.style.display = "block"; topicModal.style.display = "block"; }
+  function closeTopicModal() { topicOverlay.style.display = "none"; topicModal.style.display = "none"; }
+
+  if (openTopicBtn) {
+    openTopicBtn.addEventListener("click", (e) => { e.preventDefault(); openTopicModal(); });
+  }
+  closeTopicBtn.addEventListener("click", closeTopicModal);
+  cancelTopicBtn.addEventListener("click", closeTopicModal);
+  topicOverlay.addEventListener("click", closeTopicModal);
+</script>
 
 {% endblock %}

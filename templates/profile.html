@@ -99,7 +99,9 @@
     <div class="sidebox">
       <div class="sidebox-header">
         <h3>Communities</h3>
-        <a class="sidebox-link" href="{{ url_for('communities_page') }}">See all</a>
+        {% if communities_all_for_profile|length > 0 %}
+          <a class="sidebox-link" href="{{ url_for('communities_page') }}">See all</a>
+        {% endif %}
       </div>
 
       {% if communities_random|length == 0 %}

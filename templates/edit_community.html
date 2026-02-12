@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Edit Community</h2>
+
+<div class="panel">
+  <form method="post" action="{{ url_for('edit_community_post', cid=community.id) }}" enctype="multipart/form-data">
+    <label>Upload Community Icon (PNG/JPG)</label>
+    <input type="file" name="icon" accept=".png,.jpg,.jpeg">
+
+    <label>Community Name</label>
+    <input name="name" value="{{ community.name }}" required>
+
+    <label>Description</label>
+    <textarea name="description" rows="4" maxlength="800">{{ community.description }}</textarea>
+
+    <div class="row-actions">
+      <button type="submit">Save</button>
+      <a class="inline-link" href="{{ url_for('community_page', cid=community.id) }}">Cancel</a>
+    </div>
+  </form>
+
+  <hr style="margin:16px 0; border:0; border-top:1px solid #ececf5;">
+
+  <form method="post" action="{{ url_for('delete_community', cid=community.id) }}"
+        onsubmit="return confirm('This will permanently delete the community. Do you want to continue?');">
+    <button class="btn-danger" type="submit">Delete community</button>
+  </form>
+</div>
+
+{% endblock %}

@@ -7,7 +7,6 @@
 
 <h2>Communities</h2>
 
-<!-- Modal -->
 <div class="modal-overlay" id="communityModalOverlay" style="display:none;"></div>
 <div class="modal" id="communityModal" style="display:none;">
   <div class="modal-header">
@@ -15,7 +14,7 @@
     <button type="button" class="modal-close" id="closeCreateCommunity">X</button>
   </div>
 
-  <form method="post" action="{{ url_for('create_community') }}" enctype="multipart/form-data">
+  <form method="post" action="{{ url_for('create_community_route') }}" enctype="multipart/form-data">
     <label>Upload Community Icon (PNG/JPG)</label>
     <input type="file" name="icon" accept=".png,.jpg,.jpeg">
 
@@ -59,14 +58,8 @@
   const overlay = document.getElementById("communityModalOverlay");
   const modal = document.getElementById("communityModal");
 
-  function openModal() {
-    overlay.style.display = "block";
-    modal.style.display = "block";
-  }
-  function closeModal() {
-    overlay.style.display = "none";
-    modal.style.display = "none";
-  }
+  function openModal() { overlay.style.display = "block"; modal.style.display = "block"; }
+  function closeModal() { overlay.style.display = "none"; modal.style.display = "none"; }
 
   openBtn.addEventListener("click", (e) => { e.preventDefault(); openModal(); });
   closeBtn.addEventListener("click", closeModal);
