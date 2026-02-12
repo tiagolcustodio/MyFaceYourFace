@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Edit Profile</h2>
+
+<div class="panel">
+  <form method="post" action="{{ url_for('edit_profile_post') }}" enctype="multipart/form-data">
+    <label>Upload Profile Picture (PNG/JPG)</label>
+    <input type="file" name="profile_pic" accept=".png,.jpg,.jpeg">
+
+    <label>Name</label>
+    <input name="display_name" value="{{ user.display_name }}" required>
+
+    <label>Description</label>
+    <textarea name="description" rows="4" maxlength="500" placeholder="Write a short description...">{{ user.description }}</textarea>
+
+    <div class="row-actions">
+      <button type="submit">Save</button>
+      <a class="inline-link" href="{{ url_for('my_profile_redirect') }}">Cancel</a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

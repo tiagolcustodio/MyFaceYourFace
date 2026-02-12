@@ -40,12 +40,10 @@ a {
   opacity: 0.85;
 }
 
-/* Classe danger para LINKS (texto vermelho) */
-.danger {
-  color: #b00020;
-}
+/* Link danger */
+.danger { color: #b00020; }
 
-/* ===================== FLASH MESSAGES ===================== */
+/* ===================== FLASH ===================== */
 
 .flash {
   background: #fff6d6;
@@ -55,11 +53,14 @@ a {
   margin-bottom: 12px;
 }
 
-.inline-link {
-  font-weight: 800;
+.inline-link { font-weight: 800; }
+
+/* ===================== SUBNAV ===================== */
+.subnav {
+  margin: 10px 0 12px;
 }
 
-/* ===================== LAYOUT PRINCIPAL ===================== */
+/* ===================== LAYOUT ===================== */
 
 .layout {
   display: grid;
@@ -68,22 +69,27 @@ a {
   align-items: start;
 }
 
-.col-left,
-.col-main,
-.col-right {
+.col-left, .col-main, .col-right {
   background: #fff;
   border: 1px solid #e7e7ef;
   border-radius: 10px;
   padding: 14px;
 }
 
-/* ===================== AVATARS ===================== */
-
 .avatar-placeholder {
   width: 120px;
   height: 120px;
   background: #e9e9f2;
   border-radius: 6px;
+}
+
+/* profile/community main square image */
+.avatar-img {
+  width: 120px;
+  height: 120px;
+  border-radius: 6px;
+  object-fit: cover;
+  display: block;
 }
 
 .mini-avatar {
@@ -93,7 +99,23 @@ a {
   border-radius: 6px;
 }
 
-/* ===================== HOME SUMMARY ===================== */
+/* generic square images used in grids */
+.square-img {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  object-fit: cover;
+  display: block;
+  margin: 0 auto 8px;
+}
+
+.square-img.big {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+}
+
+/* ===================== SUMMARY ===================== */
 
 .summary {
   margin: 10px 0 18px;
@@ -101,17 +123,11 @@ a {
   gap: 6px;
 }
 
-.muted {
-  opacity: 0.7;
-}
+.muted { opacity: 0.7; }
 
 /* ===================== USER LIST ===================== */
 
-.user-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+.user-list { display: flex; flex-direction: column; gap: 10px; }
 
 .user-card {
   display: grid;
@@ -124,14 +140,8 @@ a {
   background: #fff;
 }
 
-.user-name {
-  font-weight: 700;
-}
-
-.user-handle {
-  font-size: 12px;
-  opacity: 0.7;
-}
+.user-name { font-weight: 700; }
+.user-handle { font-size: 12px; opacity: 0.7; }
 
 /* ===================== BUTTONS ===================== */
 
@@ -145,9 +155,7 @@ button {
   font-weight: 700;
 }
 
-button:hover {
-  filter: brightness(0.95);
-}
+button:hover { filter: brightness(0.95); }
 
 button.disabled {
   background: #c9c9d4;
@@ -155,15 +163,12 @@ button.disabled {
   color: #222;
 }
 
-/* NOVA CLASSE PARA BOTÕES VERMELHOS (CORREÇÃO) */
 .btn-danger {
   background: #b00020 !important;
   color: #fff !important;
 }
 
-.btn-danger:hover {
-  filter: brightness(0.9);
-}
+.btn-danger:hover { filter: brightness(0.9); }
 
 /* ===================== SIDEBAR BOXES ===================== */
 
@@ -182,19 +187,10 @@ button.disabled {
   margin-bottom: 10px;
 }
 
-.sidebox-header h3 {
-  margin: 0;
-}
+.sidebox-header h3 { margin: 0; }
+.sidebox-link { font-size: 12px; font-weight: 700; opacity: 0.85; }
 
-.sidebox-link {
-  font-size: 12px;
-  font-weight: 700;
-  opacity: 0.85;
-}
-
-.grid-link {
-  display: block;
-}
+.grid-link { display: block; }
 
 /* ===================== GRIDS ===================== */
 
@@ -217,12 +213,9 @@ button.disabled {
   text-align: center;
 }
 
-.grid-item.big {
-  padding: 14px;
-}
+.grid-item.big { padding: 14px; }
 
-.friend-avatar,
-.community-avatar {
+.friend-avatar, .community-avatar {
   width: 56px;
   height: 56px;
   margin: 0 auto 8px;
@@ -230,7 +223,7 @@ button.disabled {
   border-radius: 8px;
 }
 
-.friend-avatar.big {
+.friend-avatar.big, .community-avatar.big {
   width: 80px;
   height: 80px;
 }
@@ -242,7 +235,7 @@ button.disabled {
   word-break: break-word;
 }
 
-/* ===================== PROFILE ===================== */
+/* ===================== PROFILE BOX ===================== */
 
 .profile-box {
   border: 1px solid #ececf5;
@@ -252,11 +245,7 @@ button.disabled {
 
 /* ===================== FRIEND REQUESTS ===================== */
 
-.requests {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+.requests { display: flex; flex-direction: column; gap: 10px; }
 
 .request-card {
   border: 1px solid #ececf5;
@@ -270,35 +259,41 @@ button.disabled {
   margin-top: 10px;
 }
 
-/* ===================== MESSAGE COMPOSE ===================== */
+/* ===================== FORMS PANEL ===================== */
 
-.message-compose {
-  margin-top: 14px;
-  border: 1px solid #ececf5;
+.panel {
+  background: #fff;
+  border: 1px solid #e7e7ef;
   border-radius: 10px;
-  padding: 12px;
+  padding: 14px;
+  max-width: 680px;
 }
 
-.message-compose h3 {
-  margin: 0 0 10px;
+label {
+  display: block;
+  margin-top: 12px;
+  margin-bottom: 6px;
+  font-weight: 700;
 }
 
-textarea {
+input, textarea {
   width: 100%;
+  padding: 10px;
   border-radius: 10px;
   border: 1px solid #e1e1ea;
-  padding: 10px;
-  resize: vertical;
   font-family: inherit;
 }
 
-.compose-actions {
-  margin-top: 10px;
+textarea { resize: vertical; }
+
+.row-actions {
   display: flex;
-  justify-content: flex-end;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
 }
 
-/* ===================== WALL (MESSAGES LAYOUT) ===================== */
+/* ===================== WALL (MESSAGES) ===================== */
 
 .wall {
   display: flex;
@@ -317,13 +312,8 @@ textarea {
   padding: 12px;
 }
 
-.wall-left {
-  text-align: center;
-}
-
-.avatar-link {
-  display: inline-block;
-}
+.wall-left { text-align: center; }
+.avatar-link { display: inline-block; }
 
 .wall-avatar {
   width: 60px;
@@ -331,6 +321,15 @@ textarea {
   margin: 0 auto 8px;
   background: #e9e9f2;
   border-radius: 10px;
+}
+
+.wall-avatar-img {
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 8px;
+  border-radius: 10px;
+  object-fit: cover;
+  display: block;
 }
 
 .wall-name {
@@ -346,6 +345,65 @@ textarea {
   padding: 12px;
   line-height: 1.35;
   white-space: pre-wrap;
+}
+
+/* ===================== MESSAGE COMPOSE ===================== */
+
+.message-compose {
+  margin-top: 14px;
+  border: 1px solid #ececf5;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.message-compose h3 { margin: 0 0 10px; }
+
+.compose-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ===================== MODAL ===================== */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 1000;
+}
+
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 560px;
+  max-width: calc(100% - 24px);
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border: 1px solid #e7e7ef;
+  border-radius: 12px;
+  padding: 14px;
+  z-index: 1001;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.modal-title {
+  font-weight: 900;
+  font-size: 16px;
+}
+
+.modal-close {
+  background: #111;
+  color: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
 }
 
 /* ===================== LOGIN PAGE ===================== */
@@ -378,37 +436,11 @@ textarea {
   justify-content: center;
 }
 
-.logo-title {
-  font-size: 28px;
-  font-weight: 900;
-}
+.logo-title { font-size: 28px; font-weight: 900; }
+.logo-sub { opacity: 0.8; margin-top: 8px; }
 
-.logo-sub {
-  opacity: 0.8;
-  margin-top: 8px;
-}
-
-.login-right {
-  padding: 30px;
-}
-
-.login-right h2 {
-  margin-top: 0;
-}
-
-label {
-  display: block;
-  margin-top: 12px;
-  margin-bottom: 6px;
-  font-weight: 700;
-}
-
-input {
-  width: 100%;
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid #e1e1ea;
-}
+.login-right { padding: 30px; }
+.login-right h2 { margin-top: 0; }
 
 .hint {
   margin-top: 12px;

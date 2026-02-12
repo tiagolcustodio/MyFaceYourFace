@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="layout">
+  <div class="col-left">
+    {% if community.icon_path %}
+      <img class="avatar-img" src="{{ url_for('static', filename=community.icon_path) }}" alt="Community Icon">
+    {% else %}
+      <div class="avatar-placeholder"></div>
+    {% endif %}
+  </div>
+
+  <div class="col-main">
+    <h2>{{ community.name }}</h2>
+    <div class="muted" style="margin-bottom:12px;">
+      {{ community.description if community.description else "(no description)" }}
+    </div>
+
+    <div class="profile-box">
+      created by <b>{{ community.created_by_name }}</b>
+    </div>
+  </div>
+
+  <div class="col-right">
+    <div class="muted">Community features coming soon.</div>
+  </div>
+</div>
+
+{% endblock %}

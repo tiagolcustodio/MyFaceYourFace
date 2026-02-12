@@ -3,7 +3,11 @@
 
 <div class="layout">
   <div class="col-left">
-    <div class="avatar-placeholder"></div>
+    {% if user.profile_pic_path %}
+      <img class="avatar-img" src="{{ url_for('static', filename=user.profile_pic_path) }}" alt="Profile Picture">
+    {% else %}
+      <div class="avatar-placeholder"></div>
+    {% endif %}
   </div>
 
   <div class="col-main">
@@ -67,7 +71,11 @@
           {% for f in friends_random %}
             <div class="grid-item">
               <a href="{{ url_for('user_profile', username=f.username) }}" class="grid-link">
-                <div class="friend-avatar"></div>
+                {% if f.profile_pic_path %}
+                  <img class="square-img" src="{{ url_for('static', filename=f.profile_pic_path) }}" alt="Friend">
+                {% else %}
+                  <div class="friend-avatar"></div>
+                {% endif %}
                 <div class="grid-name">{{ f.display_name }}</div>
               </a>
             </div>
@@ -79,16 +87,27 @@
     <div class="sidebox">
       <div class="sidebox-header">
         <h3>Communities</h3>
+        <a class="sidebox-link" href="{{ url_for('communities_page') }}">See all</a>
       </div>
 
-      <div class="grid-3">
-        {% for i in range(12) %}
-          <div class="grid-item">
-            <div class="community-avatar"></div>
-            <div class="grid-name muted">Community</div>
-          </div>
-        {% endfor %}
-      </div>
+      {% if communities_random|length == 0 %}
+        <div class="muted">No communities yet.</div>
+      {% else %}
+        <div class="grid-3">
+          {% for c in communities_random %}
+            <div class="grid-item">
+              <a href="{{ url_for('community_page', cid=c.id) }}" class="grid-link">
+                {% if c.icon_path %}
+                  <img class="square-img" src="{{ url_for('static', filename=c.icon_path) }}" alt="Community">
+                {% else %}
+                  <div class="community-avatar"></div>
+                {% endif %}
+                <div class="grid-name">{{ c.name }}</div>
+              </a>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
     </div>
   </div>
 </div>

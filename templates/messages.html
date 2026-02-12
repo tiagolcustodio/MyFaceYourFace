@@ -11,7 +11,11 @@
       <div class="wall-item">
         <div class="wall-left">
           <a href="{{ url_for('user_profile', username=m.from_username) }}" class="avatar-link">
-            <div class="wall-avatar"></div>
+            {% if m.from_pic %}
+              <img class="wall-avatar-img" src="{{ url_for('static', filename=m.from_pic) }}" alt="Sender">
+            {% else %}
+              <div class="wall-avatar"></div>
+            {% endif %}
             <div class="wall-name">{{ m.from_name }}</div>
           </a>
         </div>

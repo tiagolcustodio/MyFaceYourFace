@@ -10,7 +10,11 @@
     {% for f in friends %}
       <div class="grid-item big">
         <a href="{{ url_for('user_profile', username=f.username) }}" class="grid-link">
-          <div class="friend-avatar big"></div>
+          {% if f.profile_pic_path %}
+            <img class="square-img big" src="{{ url_for('static', filename=f.profile_pic_path) }}" alt="Friend">
+          {% else %}
+            <div class="friend-avatar big"></div>
+          {% endif %}
           <div class="grid-name">{{ f.display_name }}</div>
           <div class="muted">@{{ f.username }}</div>
         </a>

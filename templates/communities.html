@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="subnav">
+  <a class="inline-link" href="#" id="openCreateCommunity">Create New Community</a>
+</div>
+
+<h2>Communities</h2>
+
+<!-- Modal -->
+<div class="modal-overlay" id="communityModalOverlay" style="display:none;"></div>
+<div class="modal" id="communityModal" style="display:none;">
+  <div class="modal-header">
+    <div class="modal-title">Create New Community</div>
+    <button type="button" class="modal-close" id="closeCreateCommunity">X</button>
+  </div>
+
+  <form method="post" action="{{ url_for('create_community') }}" enctype="multipart/form-data">
+    <label>Upload Community Icon (PNG/JPG)</label>
+    <input type="file" name="icon" accept=".png,.jpg,.jpeg">
+
+    <label>Community Name</label>
+    <input name="name" required>
+
+    <label>Description</label>
+    <textarea name="description" rows="4" maxlength="800" placeholder="Describe the community..."></textarea>
+
+    <div class="row-actions">
+      <button type="submit">Save</button>
+      <button type="button" class="btn-danger" id="cancelCreateCommunity">Cancel</button>
+    </div>
+  </form>
+</div>
+
+{% if communities|length == 0 %}
+  <div class="muted">No communities yet. Create the first one.</div>
+{% else %}
+  <div class="grid-4" style="margin-top:12px;">
+    {% for c in communities %}
+      <div class="grid-item big">
+        <a href="{{ url_for('community_page', cid=c.id) }}" class="grid-link">
+          {% if c.icon_path %}
+            <img class="square-img big" src="{{ url_for('static', filename=c.icon_path) }}" alt="Community">
+          {% else %}
+            <div class="community-avatar big"></div>
+          {% endif %}
+          <div class="grid-name">{{ c.name }}</div>
+          <div class="muted">{{ c.description if c.description else "(no description)" }}</div>
+        </a>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<script>
+  const openBtn = document.getElementById("openCreateCommunity");
+  const closeBtn = document.getElementById("closeCreateCommunity");
+  const cancelBtn = document.getElementById("cancelCreateCommunity");
+  const overlay = document.getElementById("communityModalOverlay");
+  const modal = document.getElementById("communityModal");
+
+  function openModal() {
+    overlay.style.display = "block";
+    modal.style.display = "block";
+  }
+  function closeModal() {
+    overlay.style.display = "none";
+    modal.style.display = "none";
+  }
+
+  openBtn.addEventListener("click", (e) => { e.preventDefault(); openModal(); });
+  closeBtn.addEventListener("click", closeModal);
+  cancelBtn.addEventListener("click", closeModal);
+  overlay.addEventListener("click", closeModal);
+</script>
+
+{% endblock %}

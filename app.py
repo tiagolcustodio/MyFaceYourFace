@@ -5,19 +5,66 @@ from functools import wraps
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash, g, abort
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 
 APP_NAME = "MyFaceYourFace"
 DB_PATH = os.environ.get("DB_PATH", "myface.db")
 
-# Demo credentials (requested)
+# Demo credentials
 DEFAULT_ADMIN_USER = os.environ.get("DEFAULT_ADMIN_USER", "admin")
 DEFAULT_ADMIN_PASS = os.environ.get("DEFAULT_ADMIN_PASS", "admin311286?")
 
 DEFAULT_Tiago_USER = os.environ.get("DEFAULT_Tiago_USER", "tiagoluis86")
 DEFAULT_Tiago_PASS = os.environ.get("DEFAULT_Tiago_PASS", "Quadrado86?")
 
+UPLOAD_DIR_PROFILES = os.path.join("static", "uploads", "profiles")
+UPLOAD_DIR_COMMUNITIES = os.path.join("static", "uploads", "communities")
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+
+
+# -----------------------------
+# Upload helpers
+# -----------------------------
+def ensure_upload_dirs():
+    os.makedirs(UPLOAD_DIR_PROFILES, exist_ok=True)
+    os.makedirs(UPLOAD_DIR_COMMUNITIES, exist_ok=True)
+
+
+def allowed_file(filename: str) -> bool:
+    if not filename or "." not in filename:
+        return False
+    ext = filename.rsplit(".", 1)[1].lower()
+    return ext in ALLOWED_EXTENSIONS
+
+
+def save_upload(file_storage, folder: str, prefix: str) -> str | None:
+    """
+    Saves upload into static/uploads/<folder>.
+    Returns relative path like: uploads/profiles/xxx.png
+    """
+    if not file_storage or file_storage.filename == "":
+        return None
+    if not allowed_file(file_storage.filename):
+        return None
+
+    ensure_upload_dirs()
+
+    filename = secure_filename(file_storage.filename)
+    ext = filename.rsplit(".", 1)[1].lower()
+    unique = f"{prefix}_{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}.{ext}"
+
+    if folder == "profiles":
+        abs_path = os.path.join(UPLOAD_DIR_PROFILES, unique)
+        rel_path = os.path.join("uploads", "profiles", unique).replace("\\", "/")
+    else:
+        abs_path = os.path.join(UPLOAD_DIR_COMMUNITIES, unique)
+        rel_path = os.path.join("uploads", "communities", unique).replace("\\", "/")
+
+    file_storage.save(abs_path)
+    return rel_path
 
 
 # -----------------------------
@@ -62,7 +109,6 @@ def init_db():
             description TEXT DEFAULT ''
         );
 
-        -- one row per direction
         CREATE TABLE IF NOT EXISTS friendships (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -82,13 +128,25 @@ def init_db():
             FOREIGN KEY(from_user_id) REFERENCES users(id),
             FOREIGN KEY(to_user_id) REFERENCES users(id)
         );
+
+        CREATE TABLE IF NOT EXISTS communities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            icon_path TEXT DEFAULT NULL,
+            created_by_user_id INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(created_by_user_id) REFERENCES users(id)
+        );
         """
     )
     db.commit()
 
-    # ---- MIGRATIONS (keeps old DBs working) ----
+    # ---- MIGRATIONS ----
     add_column_if_missing("messages", "content", "ALTER TABLE messages ADD COLUMN content TEXT DEFAULT NULL")
     add_column_if_missing("messages", "read_at", "ALTER TABLE messages ADD COLUMN read_at TEXT DEFAULT NULL")
+
+    add_column_if_missing("users", "profile_pic_path", "ALTER TABLE users ADD COLUMN profile_pic_path TEXT DEFAULT NULL")
 
 
 def seed_default_users():
@@ -176,7 +234,6 @@ def count_messages_unread(user_id: int) -> int:
 
 
 def mark_inbox_read(user_id: int):
-    """Marks ALL unread inbox messages as read (read_at set) for the current user."""
     db = get_db()
     now = datetime.utcnow().isoformat()
     db.execute(
@@ -194,7 +251,7 @@ def list_friends(user_id: int):
     db = get_db()
     return db.execute(
         """
-        SELECT u.id, u.username, u.display_name
+        SELECT u.id, u.username, u.display_name, u.profile_pic_path
         FROM friendships f
         JOIN users u ON u.id = f.friend_id
         WHERE f.user_id = ?
@@ -208,7 +265,7 @@ def list_friends_random(user_id: int, limit: int = 12):
     db = get_db()
     return db.execute(
         """
-        SELECT u.id, u.username, u.display_name
+        SELECT u.id, u.username, u.display_name, u.profile_pic_path
         FROM friendships f
         JOIN users u ON u.id = f.friend_id
         WHERE f.user_id = ?
@@ -261,12 +318,11 @@ def get_user_by_username(username: str):
 
 
 def get_wall_messages(profile_user_id: int):
-    """Messages posted to that user's profile (wall)."""
     db = get_db()
     return db.execute(
         """
         SELECT m.id, m.content, m.created_at,
-               u.display_name AS from_name, u.username AS from_username
+               u.display_name AS from_name, u.username AS from_username, u.profile_pic_path AS from_pic
         FROM messages m
         JOIN users u ON u.id = m.from_user_id
         WHERE m.to_user_id = ? AND m.type = 'message'
@@ -277,12 +333,11 @@ def get_wall_messages(profile_user_id: int):
 
 
 def get_inbox_messages(user_id: int):
-    """Messages received by current user (same as wall messages for them)."""
     db = get_db()
     return db.execute(
         """
         SELECT m.id, m.content, m.created_at, m.read_at,
-               u.display_name AS from_name, u.username AS from_username
+               u.display_name AS from_name, u.username AS from_username, u.profile_pic_path AS from_pic
         FROM messages m
         JOIN users u ON u.id = m.from_user_id
         WHERE m.to_user_id = ? AND m.type = 'message'
@@ -290,6 +345,46 @@ def get_inbox_messages(user_id: int):
         """,
         (user_id,),
     ).fetchall()
+
+
+def list_communities_all():
+    db = get_db()
+    return db.execute(
+        """
+        SELECT c.id, c.name, c.description, c.icon_path, c.created_at,
+               u.display_name AS created_by_name, u.username AS created_by_username
+        FROM communities c
+        JOIN users u ON u.id = c.created_by_user_id
+        ORDER BY c.created_at DESC
+        """
+    ).fetchall()
+
+
+def list_communities_random(limit: int = 12):
+    db = get_db()
+    return db.execute(
+        """
+        SELECT c.id, c.name, c.icon_path
+        FROM communities c
+        ORDER BY RANDOM()
+        LIMIT ?
+        """,
+        (limit,),
+    ).fetchall()
+
+
+def get_community_by_id(cid: int):
+    db = get_db()
+    return db.execute(
+        """
+        SELECT c.id, c.name, c.description, c.icon_path, c.created_at,
+               u.display_name AS created_by_name, u.username AS created_by_username
+        FROM communities c
+        JOIN users u ON u.id = c.created_by_user_id
+        WHERE c.id = ?
+        """,
+        (cid,),
+    ).fetchone()
 
 
 # -----------------------------
@@ -339,6 +434,7 @@ def home():
     messages_total_count = count_messages_total(user["id"])
     messages_unread_count = count_messages_unread(user["id"])
     friends_random = list_friends_random(user["id"], limit=12)
+    communities_random = list_communities_random(limit=12)
 
     all_users = db.execute(
         "SELECT id, username, display_name FROM users ORDER BY display_name ASC"
@@ -348,10 +444,8 @@ def home():
     for u in all_users:
         if u["id"] == user["id"]:
             continue
-
-        # ✅ Hide existing friends completely from "People you may know"
         if are_friends(user["id"], u["id"]):
-            continue
+            continue  # hide existing friends
 
         can_request = True
         label = "Add friend"
@@ -381,6 +475,7 @@ def home():
         messages_total_count=messages_total_count,
         messages_unread_count=messages_unread_count,
         friends_random=friends_random,
+        communities_random=communities_random,
         user_cards=cards,
     )
 
@@ -408,7 +503,6 @@ def send_friend_request(to_user_id):
     return redirect(url_for("home"))
 
 
-# Friend requests page (NOT in top menu; only linked from Home when count > 0)
 @app.get("/friend-requests")
 @login_required
 def friend_requests():
@@ -419,6 +513,7 @@ def friend_requests():
     messages_total_count = count_messages_total(user["id"])
     messages_unread_count = count_messages_unread(user["id"])
     friends_random = list_friends_random(user["id"], limit=12)
+    communities_random = list_communities_random(limit=12)
 
     pending = db.execute(
         """
@@ -440,6 +535,7 @@ def friend_requests():
         messages_total_count=messages_total_count,
         messages_unread_count=messages_unread_count,
         friends_random=friends_random,
+        communities_random=communities_random,
     )
 
 
@@ -489,9 +585,8 @@ def reject_friend_request(msg_id):
 @app.get("/profile")
 @login_required
 def my_profile_redirect():
-    # ✅ Visiting Profile counts as "viewed messages" (marks inbox read)
     user = current_user()
-    mark_inbox_read(user["id"])
+    mark_inbox_read(user["id"])  # viewing your own profile counts as "read"
     return redirect(url_for("user_profile", username=user["username"]))
 
 
@@ -507,8 +602,8 @@ def user_profile(username):
     messages_total_count = count_messages_total(viewer["id"])
     messages_unread_count = count_messages_unread(viewer["id"])
 
-    # Right sidebar = friends of profile owner
     friends_random = list_friends_random(profile_user["id"], limit=12)
+    communities_random = list_communities_random(limit=12)
 
     is_owner = (viewer["id"] == profile_user["id"])
     is_friend = are_friends(viewer["id"], profile_user["id"]) if not is_owner else True
@@ -526,8 +621,62 @@ def user_profile(username):
         messages_total_count=messages_total_count,
         messages_unread_count=messages_unread_count,
         friends_random=friends_random,
+        communities_random=communities_random,
         wall_messages=wall_messages,
     )
+
+
+@app.get("/edit-profile")
+@login_required
+def edit_profile():
+    user = current_user()
+    pending_requests_count = count_pending_friend_requests(user["id"])
+    messages_total_count = count_messages_total(user["id"])
+    messages_unread_count = count_messages_unread(user["id"])
+    return render_template(
+        "edit_profile.html",
+        app_name=APP_NAME,
+        user=user,
+        pending_requests_count=pending_requests_count,
+        messages_total_count=messages_total_count,
+        messages_unread_count=messages_unread_count,
+    )
+
+
+@app.post("/edit-profile")
+@login_required
+def edit_profile_post():
+    user = current_user()
+    name = (request.form.get("display_name") or "").strip()
+    desc = (request.form.get("description") or "").strip()
+
+    if not name:
+        flash("Name cannot be empty.")
+        return redirect(url_for("edit_profile"))
+
+    pic = request.files.get("profile_pic")
+    rel_path = None
+    if pic and pic.filename:
+        rel_path = save_upload(pic, "profiles", prefix=f"user{user['id']}")
+        if rel_path is None:
+            flash("Invalid file. Please upload PNG or JPG.")
+            return redirect(url_for("edit_profile"))
+
+    db = get_db()
+    if rel_path:
+        db.execute(
+            "UPDATE users SET display_name = ?, description = ?, profile_pic_path = ? WHERE id = ?",
+            (name, desc, rel_path, user["id"]),
+        )
+    else:
+        db.execute(
+            "UPDATE users SET display_name = ?, description = ? WHERE id = ?",
+            (name, desc, user["id"]),
+        )
+    db.commit()
+
+    flash("Profile updated.")
+    return redirect(url_for("my_profile_redirect"))
 
 
 @app.post("/u/<username>/message")
@@ -542,7 +691,6 @@ def post_message(username):
         flash("You cannot post a message to yourself (for now).")
         return redirect(url_for("user_profile", username=username))
 
-    # Only friends can post
     if not are_friends(viewer["id"], profile_user["id"]):
         flash("You can only post messages to friends.")
         return redirect(url_for("user_profile", username=username))
@@ -551,7 +699,6 @@ def post_message(username):
     if not content:
         flash("Message cannot be empty.")
         return redirect(url_for("user_profile", username=username))
-
     if len(content) > 500:
         flash("Message is too long (max 500 characters).")
         return redirect(url_for("user_profile", username=username))
@@ -596,7 +743,6 @@ def unfriend(username):
     target = get_user_by_username(username)
     if not target:
         abort(404)
-
     if target["id"] == user["id"]:
         return redirect(url_for("friends_page"))
 
@@ -609,15 +755,15 @@ def unfriend(username):
 @app.get("/messages")
 @login_required
 def messages():
-    # ✅ Visiting Messages counts as "viewed messages" (marks inbox read)
     user = current_user()
     mark_inbox_read(user["id"])
 
     pending_requests_count = count_pending_friend_requests(user["id"])
     messages_total_count = count_messages_total(user["id"])
-    messages_unread_count = count_messages_unread(user["id"])  # will be 0 after marking read
-
+    messages_unread_count = count_messages_unread(user["id"])  # should be 0 after mark
     inbox = get_inbox_messages(user["id"])
+
+    communities_random = list_communities_random(limit=12)
 
     return render_template(
         "messages.html",
@@ -627,6 +773,7 @@ def messages():
         pending_requests_count=pending_requests_count,
         messages_total_count=messages_total_count,
         messages_unread_count=messages_unread_count,
+        communities_random=communities_random,
     )
 
 
@@ -637,10 +784,71 @@ def communities_page():
     pending_requests_count = count_pending_friend_requests(user["id"])
     messages_total_count = count_messages_total(user["id"])
     messages_unread_count = count_messages_unread(user["id"])
+
+    communities = list_communities_all()
+
     return render_template(
-        "simple.html",
+        "communities.html",
         app_name=APP_NAME,
-        title="Communities",
+        user=user,
+        communities=communities,
+        pending_requests_count=pending_requests_count,
+        messages_total_count=messages_total_count,
+        messages_unread_count=messages_unread_count,
+    )
+
+
+@app.post("/communities/create")
+@login_required
+def create_community():
+    user = current_user()
+
+    name = (request.form.get("name") or "").strip()
+    desc = (request.form.get("description") or "").strip()
+
+    if not name:
+        flash("Community name cannot be empty.")
+        return redirect(url_for("communities_page"))
+
+    icon = request.files.get("icon")
+    icon_path = None
+    if icon and icon.filename:
+        icon_path = save_upload(icon, "communities", prefix=f"community_user{user['id']}")
+        if icon_path is None:
+            flash("Invalid icon. Please upload PNG or JPG.")
+            return redirect(url_for("communities_page"))
+
+    db = get_db()
+    db.execute(
+        """
+        INSERT INTO communities (name, description, icon_path, created_by_user_id, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (name, desc, icon_path, user["id"], datetime.utcnow().isoformat()),
+    )
+    db.commit()
+
+    flash("Community created.")
+    return redirect(url_for("communities_page"))
+
+
+@app.get("/c/<int:cid>")
+@login_required
+def community_page(cid):
+    user = current_user()
+    pending_requests_count = count_pending_friend_requests(user["id"])
+    messages_total_count = count_messages_total(user["id"])
+    messages_unread_count = count_messages_unread(user["id"])
+
+    community = get_community_by_id(cid)
+    if not community:
+        abort(404)
+
+    return render_template(
+        "community.html",
+        app_name=APP_NAME,
+        user=user,
+        community=community,
         pending_requests_count=pending_requests_count,
         messages_total_count=messages_total_count,
         messages_unread_count=messages_unread_count,
@@ -651,16 +859,13 @@ def communities_page():
 @login_required
 def settings_page():
     user = current_user()
-    pending_requests_count = count_pending_friend_requests(user["id"])
-    messages_total_count = count_messages_total(user["id"])
-    messages_unread_count = count_messages_unread(user["id"])
     return render_template(
         "simple.html",
         app_name=APP_NAME,
         title="Settings",
-        pending_requests_count=pending_requests_count,
-        messages_total_count=messages_total_count,
-        messages_unread_count=messages_unread_count,
+        pending_requests_count=count_pending_friend_requests(user["id"]),
+        messages_total_count=count_messages_total(user["id"]),
+        messages_unread_count=count_messages_unread(user["id"]),
     )
 
 
@@ -668,18 +873,16 @@ def settings_page():
 @login_required
 def help_page():
     user = current_user()
-    pending_requests_count = count_pending_friend_requests(user["id"])
-    messages_total_count = count_messages_total(user["id"])
-    messages_unread_count = count_messages_unread(user["id"])
     return render_template(
         "simple.html",
         app_name=APP_NAME,
         title="Help",
-        pending_requests_count=pending_requests_count,
-        messages_total_count=messages_total_count,
-        messages_unread_count=messages_unread_count,
+        pending_requests_count=count_pending_friend_requests(user["id"]),
+        messages_total_count=count_messages_total(user["id"]),
+        messages_unread_count=count_messages_unread(user["id"]),
     )
 
 
 if __name__ == "__main__":
+    ensure_upload_dirs()
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
