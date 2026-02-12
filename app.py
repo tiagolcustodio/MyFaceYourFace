@@ -38,6 +38,25 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 
 
 # -----------------------------
+# Date/Time formatting (global)
+# -----------------------------
+def fmt_dt(value) -> str:
+    if not value:
+        return ""
+    try:
+        # ISO stored
+        dt = datetime.fromisoformat(value)
+        return dt.strftime("%H:%M, %d/%m/%Y")
+    except Exception:
+        return str(value)
+
+
+@app.template_filter("fmt_dt")
+def jinja_fmt_dt(value):
+    return fmt_dt(value)
+
+
+# -----------------------------
 # Upload helpers
 # -----------------------------
 def ensure_upload_dirs():
@@ -202,7 +221,7 @@ def init_db():
     add_column_if_missing("users", "favorite_team", "ALTER TABLE users ADD COLUMN favorite_team TEXT DEFAULT NULL")
     add_column_if_missing("users", "main_hobby", "ALTER TABLE users ADD COLUMN main_hobby TEXT DEFAULT NULL")
 
-    # ✅ invites
+    # invites
     add_column_if_missing("users", "invites_remaining", "ALTER TABLE users ADD COLUMN invites_remaining INTEGER DEFAULT 5")
 
 
@@ -212,7 +231,6 @@ def seed_default_users():
     def ensure_user(username, password, display_name, description="", invites=DEFAULT_INVITES):
         row = db.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
         if row:
-            # ensure invites set if null/0 for existing records
             db.execute(
                 """
                 UPDATE users
@@ -734,7 +752,6 @@ def validate_username(username: str) -> str | None:
 
 
 def validate_password(pw: str) -> str | None:
-    # at least 8, one lower, one upper, one symbol
     if not pw or len(pw) < 8:
         return "Password must be at least 8 characters."
     if not re.search(r"[a-z]", pw):
@@ -785,64 +802,84 @@ def logout():
 
 def _recent_activities_for_home(viewer_id: int):
     """
-    - friend message received: "{Friend} has received a message from {Sender} (timestamp)"
-      (only for viewer's friends)
-    - community activity: "{Community} had activity (timestamp)"
-      (only for communities where viewer is a member)
-    max 5 combined, sorted desc
+    Returns up to 5 activities:
+    - Friend message received (for viewer's friends):
+      click -> open receiver profile
+      shows 2 mini squares: receiver + sender
+    - Community activity (for communities where viewer is a member):
+      click -> open community
+      shows 1 mini square: community icon
     """
     db = get_db()
+    friend_rows = []
+    community_rows = []
 
-    friend_ids = [r["id"] for r in list_friends(viewer_id)]
-    activities = []
+    friends = list_friends(viewer_id)
+    friend_ids = [r["id"] for r in friends]
 
     if friend_ids:
         q_marks = ",".join(["?"] * len(friend_ids))
-        rows = db.execute(
+        friend_rows = db.execute(
             f"""
-            SELECT m.created_at, fu.display_name AS to_name, su.display_name AS from_name
+            SELECT m.created_at,
+                   to_u.username AS to_username, to_u.display_name AS to_name, to_u.profile_pic_path AS to_pic,
+                   from_u.username AS from_username, from_u.display_name AS from_name, from_u.profile_pic_path AS from_pic
             FROM messages m
-            JOIN users fu ON fu.id = m.to_user_id
-            JOIN users su ON su.id = m.from_user_id
+            JOIN users to_u ON to_u.id = m.to_user_id
+            JOIN users from_u ON from_u.id = m.from_user_id
             WHERE m.type = 'message' AND m.to_user_id IN ({q_marks})
             ORDER BY m.created_at DESC
-            LIMIT 10
+            LIMIT 20
             """,
             tuple(friend_ids),
         ).fetchall()
 
-        for r in rows:
-            activities.append(
-                {
-                    "ts": r["created_at"],
-                    "text": f"{r['to_name']} has received a message from {r['from_name']} ({r['created_at']})",
-                }
-            )
-
-    comm_rows = db.execute(
+    community_rows = db.execute(
         """
-        SELECT c.id AS community_id, c.name AS community_name, MAX(tm.created_at) AS last_ts
+        SELECT c.id AS community_id, c.name AS community_name, c.icon_path AS icon_path,
+               MAX(tm.created_at) AS last_ts
         FROM community_members cm
         JOIN communities c ON c.id = cm.community_id
         JOIN community_topics t ON t.community_id = c.id
         JOIN topic_messages tm ON tm.topic_id = t.id
         WHERE cm.user_id = ?
-        GROUP BY c.id, c.name
+        GROUP BY c.id, c.name, c.icon_path
         ORDER BY last_ts DESC
-        LIMIT 10
+        LIMIT 20
         """,
         (viewer_id,),
     ).fetchall()
 
-    for r in comm_rows:
+    activities = []
+
+    for r in friend_rows:
         activities.append(
             {
-                "ts": r["last_ts"],
-                "text": f"{r['community_name']} had activity ({r['last_ts']})",
+                "type": "friend_message",
+                "ts": r["created_at"],
+                "receiver_username": r["to_username"],
+                "receiver_name": r["to_name"],
+                "receiver_pic": r["to_pic"],
+                "sender_name": r["from_name"],
+                "sender_pic": r["from_pic"],
+                "text": f"{r['to_name']} has received a message from {r['from_name']}",
+                "link": url_for("user_profile", username=r["to_username"]),
             }
         )
 
-    # sort by ts desc and pick top 5
+    for r in community_rows:
+        activities.append(
+            {
+                "type": "community",
+                "ts": r["last_ts"],
+                "community_id": r["community_id"],
+                "community_name": r["community_name"],
+                "community_icon": r["icon_path"],
+                "text": f"{r['community_name']} had activity",
+                "link": url_for("community_page", cid=r["community_id"]),
+            }
+        )
+
     activities.sort(key=lambda x: x["ts"] or "", reverse=True)
     return activities[:5]
 
@@ -860,7 +897,10 @@ def home():
     friends_random = list_friends_random(user["id"], limit=12)
     communities_random = list_user_communities_random(user["id"], limit=12)
 
-    all_users = db.execute("SELECT id, username, display_name FROM users ORDER BY display_name ASC").fetchall()
+    # ✅ include profile_pic_path for People you may know
+    all_users = db.execute(
+        "SELECT id, username, display_name, profile_pic_path FROM users ORDER BY display_name ASC"
+    ).fetchall()
 
     cards = []
     for u in all_users:
@@ -884,6 +924,7 @@ def home():
                 "id": u["id"],
                 "display_name": u["display_name"],
                 "username": u["username"],
+                "profile_pic_path": u["profile_pic_path"],
                 "can_request": can_request,
                 "label": label,
             }
@@ -1229,7 +1270,6 @@ def friends_page():
     user = current_user()
     friends = list_friends(user["id"])
     invites_remaining = get_invites_remaining(user["id"])
-
     invite_link = session.pop("last_invite_link", None)
 
     return render_template(
@@ -1364,7 +1404,6 @@ def create_profile_from_invite_post(token):
         flash("Username already taken.")
         return redirect(url_for("create_profile_from_invite", token=token))
 
-    # Create new user
     pw_hash = generate_password_hash(pw1)
     db.execute(
         """
@@ -1382,18 +1421,16 @@ def create_profile_from_invite_post(token):
             rel_path,
             birthdate, sex, orientation, relationship,
             politics, favorite_team, main_hobby,
-            DEFAULT_INVITES,  # invited users start with 5 (same rule)
+            DEFAULT_INVITES,
         ),
     )
     db.commit()
 
     new_user_id = db.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()["id"]
 
-    # Mark invite used + decrement inviter invites
     mark_invite_used(token, new_user_id)
     decrement_invites(inviter_id)
 
-    # Auto-friend with inviter
     make_friendship(inviter_id, new_user_id)
 
     flash("Profile created! You can login now.")
@@ -1422,7 +1459,7 @@ def messages():
     user = current_user()
     mark_inbox_read(user["id"])
 
-    inbox = get_inbox_messages(user["id"])
+    inbox = get_inbox_messages(user["id"])  # already DESC
     return render_template(
         "messages.html",
         app_name=APP_NAME,
@@ -1434,8 +1471,31 @@ def messages():
     )
 
 
+# ✅ NEW: Profile -> See all communities (memberships only)
+@app.get("/u/<username>/communities")
+@login_required
+def user_communities(username):
+    viewer = current_user()
+    profile_user = get_user_by_username(username)
+    if not profile_user:
+        abort(404)
+
+    communities = list_user_communities_all(profile_user["id"])
+
+    return render_template(
+        "user_communities.html",
+        app_name=APP_NAME,
+        viewer=viewer,
+        profile_user=profile_user,
+        communities=communities,
+        pending_requests_count=count_pending_friend_requests(viewer["id"]),
+        messages_total_count=count_messages_total(viewer["id"]),
+        messages_unread_count=count_messages_unread(viewer["id"]),
+    )
+
+
 # -----------------------------
-# Communities (unchanged routes below here except already in your version)
+# Communities (top tab: ALL communities)
 # -----------------------------
 @app.get("/communities")
 @login_required

@@ -18,13 +18,13 @@
             {% endif %}
             <div class="wall-name">{{ m.from_name }}</div>
           </a>
+          <div class="muted" style="margin-top:6px;">{{ m.created_at|fmt_dt }}</div>
         </div>
 
         <div class="wall-right">
           <div class="wall-bubble-row">
             <div class="wall-bubble">{{ m.content }}</div>
 
-            <!-- recipient can always delete; sender can delete too -->
             <form method="post"
                   action="{{ url_for('delete_profile_message', message_id=m.id) }}"
                   onsubmit="return confirm('Delete this message?');"

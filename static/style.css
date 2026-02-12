@@ -450,3 +450,39 @@ input {
 .topic-actions{
   margin: 0;
 }
+
+/* ✅ Mini avatars with real images */
+.mini-avatar-img{
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  object-fit: cover;
+  display:block;
+}
+
+/* ✅ Activities layout */
+.activity-link{
+  display:block;
+  border: 1px solid #ececf5;
+  background:#fff;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.activity-row{
+  display:grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items:center;
+}
+
+.activity-avatars{
+  display:flex;
+  gap: 8px;
+  align-items:center;
+}
+
+.activity-title{
+  font-weight: 900;
+  line-height: 1.2;
+}

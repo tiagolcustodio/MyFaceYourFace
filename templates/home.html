@@ -33,11 +33,17 @@
       <div class="user-list">
         {% for u in user_cards %}
           <div class="user-card">
-            <div class="mini-avatar"></div>
+            {% if u.profile_pic_path %}
+              <img class="mini-avatar-img" src="{{ url_for('static', filename=u.profile_pic_path) }}" alt="User">
+            {% else %}
+              <div class="mini-avatar"></div>
+            {% endif %}
+
             <div>
               <div class="user-name">{{ u.display_name }}</div>
               <div class="user-handle">@{{ u.username }}</div>
             </div>
+
             <div>
               {% if u.can_request %}
                 <form method="post" action="{{ url_for('send_friend_request', to_user_id=u.id) }}">
@@ -55,9 +61,39 @@
     {% if recent_activities and recent_activities|length > 0 %}
       <div class="panel" style="margin-top:16px;">
         <h3 style="margin-top:0;">Recent Activities</h3>
+
         <div class="activities">
           {% for a in recent_activities %}
-            <div class="activity-item">{{ a.text }}</div>
+            <a class="activity-link" href="{{ a.link }}">
+              <div class="activity-row">
+                <div class="activity-avatars">
+                  {% if a.type == 'community' %}
+                    {% if a.community_icon %}
+                      <img class="mini-avatar-img" src="{{ url_for('static', filename=a.community_icon) }}" alt="Community">
+                    {% else %}
+                      <div class="mini-avatar"></div>
+                    {% endif %}
+                  {% else %}
+                    {% if a.receiver_pic %}
+                      <img class="mini-avatar-img" src="{{ url_for('static', filename=a.receiver_pic) }}" alt="Receiver">
+                    {% else %}
+                      <div class="mini-avatar"></div>
+                    {% endif %}
+
+                    {% if a.sender_pic %}
+                      <img class="mini-avatar-img" src="{{ url_for('static', filename=a.sender_pic) }}" alt="Sender">
+                    {% else %}
+                      <div class="mini-avatar"></div>
+                    {% endif %}
+                  {% endif %}
+                </div>
+
+                <div class="activity-text">
+                  <div class="activity-title">{{ a.text }}</div>
+                  <div class="muted">{{ a.ts|fmt_dt }}</div>
+                </div>
+              </div>
+            </a>
           {% endfor %}
         </div>
       </div>
