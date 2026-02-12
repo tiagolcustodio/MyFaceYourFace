@@ -10,11 +10,49 @@
     <h2>Profile</h2>
 
     <div class="profile-box">
-      <div><b>Nome:</b> {{ user.display_name }}</div>
-      <div><b>Descrição:</b> {{ user.description if user.description else "(sem descrição)" }}</div>
-      <div><b>Solicitações de amizade:</b> {{ pending_requests_count }}</div>
-      <div><b>Mensagens:</b> {{ messages_count }}</div>
+      <div><b>Name:</b> {{ profile_user.display_name }}</div>
+      <div><b>Username:</b> @{{ profile_user.username }}</div>
+      <div><b>Description:</b> {{ profile_user.description if profile_user.description else "(no description)" }}</div>
+      <div><b>Messages:</b> {{ wall_messages|length }}</div>
     </div>
+
+    {% if (not is_owner) and is_friend %}
+      <div class="message-compose">
+        <h3>Leave a message</h3>
+        <form method="post" action="{{ url_for('post_message', username=profile_user.username) }}">
+          <textarea name="content" rows="3" maxlength="500" placeholder="Write something..."></textarea>
+          <div class="compose-actions">
+            <button type="submit">Send</button>
+          </div>
+        </form>
+      </div>
+    {% elif not is_owner %}
+      <div class="muted" style="margin-top:12px;">
+        You can only post messages to friends.
+      </div>
+    {% endif %}
+
+    <h3 style="margin-top:18px;">Messages</h3>
+
+    {% if wall_messages|length == 0 %}
+      <div class="muted">No messages yet.</div>
+    {% else %}
+      <div class="wall">
+        {% for m in wall_messages %}
+          <div class="wall-item">
+            <div class="wall-left">
+              <a href="{{ url_for('user_profile', username=m.from_username) }}" class="avatar-link">
+                <div class="wall-avatar"></div>
+                <div class="wall-name">{{ m.from_name }}</div>
+              </a>
+            </div>
+            <div class="wall-right">
+              <div class="wall-bubble">{{ m.content }}</div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
   </div>
 
   <div class="col-right">
@@ -25,13 +63,15 @@
       </div>
 
       {% if friends_random|length == 0 %}
-        <div class="muted">Nenhum amigo ainda.</div>
+        <div class="muted">No friends yet.</div>
       {% else %}
         <div class="grid-3">
           {% for f in friends_random %}
             <div class="grid-item">
-              <div class="friend-avatar"></div>
-              <div class="grid-name">{{ f.display_name }}</div>
+              <a href="{{ url_for('user_profile', username=f.username) }}" class="grid-link">
+                <div class="friend-avatar"></div>
+                <div class="grid-name">{{ f.display_name }}</div>
+              </a>
             </div>
           {% endfor %}
         </div>

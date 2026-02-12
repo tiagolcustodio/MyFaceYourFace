@@ -26,6 +26,8 @@ a { text-decoration: none; color: #111; }
   margin-bottom: 12px;
 }
 
+.inline-link { font-weight: 800; }
+
 .layout { display: grid; grid-template-columns: 160px 1fr 280px; gap: 16px; align-items: start; }
 
 .col-left, .col-main, .col-right {
@@ -96,6 +98,8 @@ button.danger { background: #b00020; }
 .sidebox-header h3 { margin: 0; }
 .sidebox-link { font-size: 12px; font-weight: 700; opacity: 0.85; }
 
+.grid-link { display: block; }
+
 .grid-3 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -140,10 +144,67 @@ button.danger { background: #b00020; }
 /* Profile box */
 .profile-box { border: 1px solid #ececf5; padding: 12px; border-radius: 10px; }
 
-/* Requests */
+/* Friend requests */
 .requests { display: flex; flex-direction: column; gap: 10px; }
 .request-card { border: 1px solid #ececf5; border-radius: 10px; padding: 12px; }
 .request-actions { display: flex; gap: 10px; margin-top: 10px; }
+
+/* Message compose */
+.message-compose {
+  margin-top: 14px;
+  border: 1px solid #ececf5;
+  border-radius: 10px;
+  padding: 12px;
+}
+.message-compose h3 { margin: 0 0 10px; }
+textarea {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid #e1e1ea;
+  padding: 10px;
+  resize: vertical;
+  font-family: inherit;
+}
+.compose-actions { margin-top: 10px; display: flex; justify-content: flex-end; }
+
+/* Wall messages layout */
+.wall { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+
+.wall-item {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px;
+  align-items: start;
+  border: 1px solid #ececf5;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.wall-left { text-align: center; }
+.avatar-link { display: inline-block; }
+
+.wall-avatar {
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 8px;
+  background: #e9e9f2;
+  border-radius: 10px;
+}
+
+.wall-name {
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.wall-bubble {
+  border: 1px solid #ececf5;
+  background: #fff;
+  border-radius: 10px;
+  padding: 12px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
 
 /* Login layout */
 .login-wrap {

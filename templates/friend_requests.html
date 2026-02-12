@@ -7,40 +7,29 @@
   </div>
 
   <div class="col-main">
-    <h2>Hello {{ user.display_name }}</h2>
+    <h2>Friend Requests</h2>
 
-    <div class="summary">
-      {% if pending_requests_count and pending_requests_count > 0 %}
-        <div>
-          You have <b>friend requests ({{ pending_requests_count }})</b>
-          — <a class="inline-link" href="{{ url_for('friend_requests') }}">view</a>
-        </div>
-      {% endif %}
-      <div>You have <b>messages ({{ messages_count }})</b></div>
-    </div>
-
-    <h3>People you may know:</h3>
-
-    <div class="user-list">
-      {% for u in user_cards %}
-        <div class="user-card">
-          <div class="mini-avatar"></div>
-          <div class="user-info">
-            <div class="user-name">{{ u.display_name }}</div>
-            <div class="user-handle">@{{ u.username }}</div>
-          </div>
-          <div class="user-action">
-            {% if u.can_request %}
-              <form method="post" action="{{ url_for('send_friend_request', to_user_id=u.id) }}">
-                <button type="submit">Add friend</button>
+    {% if pending_requests|length == 0 %}
+      <div class="muted">No pending requests.</div>
+    {% else %}
+      <div class="requests">
+        {% for r in pending_requests %}
+          <div class="request-card">
+            <div>
+              <b>{{ r.from_name }}</b> (@{{ r.from_username }}) wants to be your friend.
+            </div>
+            <div class="request-actions">
+              <form method="post" action="{{ url_for('accept_friend_request', msg_id=r.id) }}">
+                <button type="submit">Accept</button>
               </form>
-            {% else %}
-              <button class="disabled" disabled>{{ u.label }}</button>
-            {% endif %}
+              <form method="post" action="{{ url_for('reject_friend_request', msg_id=r.id) }}">
+                <button class="danger" type="submit">Reject</button>
+              </form>
+            </div>
           </div>
-        </div>
-      {% endfor %}
-    </div>
+        {% endfor %}
+      </div>
+    {% endif %}
   </div>
 
   <div class="col-right">
