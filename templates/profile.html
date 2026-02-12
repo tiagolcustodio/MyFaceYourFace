@@ -17,13 +17,22 @@
   </div>
 
   <div class="col-main">
-    <h2>Profile</h2>
+    <h2>{{ profile_user.display_name }}</h2>
 
     <div class="profile-box">
       <div><b>Name:</b> {{ profile_user.display_name }}</div>
       <div><b>Username:</b> @{{ profile_user.username }}</div>
       <div><b>Description:</b> {{ profile_user.description if profile_user.description else "(no description)" }}</div>
-      <div><b>Messages:</b> {{ wall_messages|length }}</div>
+
+      <div class="profile-grid" style="margin-top:10px;">
+        <div><b>Birthdate:</b> {{ profile_user.birthdate if profile_user.birthdate else " " }}</div>
+        <div><b>Sex:</b> {{ profile_user.sex if profile_user.sex else " " }}</div>
+        <div><b>Sexual orientation:</b> {{ profile_user.sexual_orientation if profile_user.sexual_orientation else " " }}</div>
+        <div><b>Relationship:</b> {{ profile_user.relationship_status if profile_user.relationship_status else " " }}</div>
+        <div><b>Political orientation:</b> {{ profile_user.political_orientation if profile_user.political_orientation else " " }}</div>
+        <div><b>Favorite team:</b> {{ profile_user.favorite_team if profile_user.favorite_team else " " }}</div>
+        <div><b>Main hobby:</b> {{ profile_user.main_hobby if profile_user.main_hobby else " " }}</div>
+      </div>
     </div>
 
     {% if (not is_owner) and is_friend %}
@@ -60,12 +69,39 @@
                 <div class="wall-name">{{ m.from_name }}</div>
               </a>
             </div>
+
             <div class="wall-right">
-              <div class="wall-bubble">{{ m.content }}</div>
+              <div class="wall-bubble-row">
+                <div class="wall-bubble">{{ m.content }}</div>
+
+                {% if viewer.id == profile_user.id or viewer.id == m.from_user_id %}
+                  <form method="post"
+                        action="{{ url_for('delete_profile_message', message_id=m.id) }}"
+                        onsubmit="return confirm('Delete this message?');"
+                        class="delete-form">
+                    <input type="hidden" name="redirect_to" value="{{ request.full_path }}">
+                    <button type="submit" class="icon-delete" aria-label="Delete">X</button>
+                  </form>
+                {% endif %}
+              </div>
             </div>
           </div>
         {% endfor %}
       </div>
+
+      {% if wall_pagination.show %}
+        <div class="pagination">
+          {% if wall_pagination.has_prev %}
+            <a class="page-link" href="{{ url_for('user_profile', username=profile_user.username, page=wall_pagination.prev_page) }}">Prev</a>
+          {% endif %}
+
+          <span class="page-info">Page {{ wall_pagination.page }} / {{ wall_pagination.total_pages }}</span>
+
+          {% if wall_pagination.has_next %}
+            <a class="page-link" href="{{ url_for('user_profile', username=profile_user.username, page=wall_pagination.next_page) }}">Next</a>
+          {% endif %}
+        </div>
+      {% endif %}
     {% endif %}
   </div>
 

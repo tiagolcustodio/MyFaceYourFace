@@ -14,6 +14,57 @@
     <label>Description</label>
     <textarea name="description" rows="4" maxlength="500" placeholder="Write a short description...">{{ user.description }}</textarea>
 
+    <hr class="soft-hr">
+
+    <label>Birthdate</label>
+    <input type="date" name="birthdate" value="{{ user.birthdate if user.birthdate else '' }}">
+
+    <label>Sex</label>
+    <div class="radio-group">
+      {% for opt in sex_options %}
+        <label class="radio-item">
+          <input type="radio" name="sex" value="{{ opt }}" {% if user.sex == opt %}checked{% endif %}>
+          <span>{{ opt }}</span>
+        </label>
+      {% endfor %}
+    </div>
+
+    <label>Sexual orientation</label>
+    <div class="radio-group">
+      {% for opt in orientation_options %}
+        <label class="radio-item">
+          <input type="radio" name="sexual_orientation" value="{{ opt }}" {% if user.sexual_orientation == opt %}checked{% endif %}>
+          <span>{{ opt }}</span>
+        </label>
+      {% endfor %}
+    </div>
+
+    <label>Relationship</label>
+    <div class="radio-group">
+      {% for opt in relationship_options %}
+        <label class="radio-item">
+          <input type="radio" name="relationship_status" value="{{ opt }}" {% if user.relationship_status == opt %}checked{% endif %}>
+          <span>{{ opt }}</span>
+        </label>
+      {% endfor %}
+    </div>
+
+    <label>Political orientation</label>
+    <div class="radio-group">
+      {% for opt in politics_options %}
+        <label class="radio-item">
+          <input type="radio" name="political_orientation" value="{{ opt }}" {% if user.political_orientation == opt %}checked{% endif %}>
+          <span>{{ opt }}</span>
+        </label>
+      {% endfor %}
+    </div>
+
+    <label>Favorite team</label>
+    <input name="favorite_team" value="{{ user.favorite_team if user.favorite_team else '' }}" maxlength="80" placeholder="Type your favorite team...">
+
+    <label>Main hobby</label>
+    <input name="main_hobby" value="{{ user.main_hobby if user.main_hobby else '' }}" maxlength="80" placeholder="Type your main hobby...">
+
     <div class="row-actions">
       <button type="submit">Save</button>
       <a class="inline-link" href="{{ url_for('my_profile_redirect') }}">Cancel</a>

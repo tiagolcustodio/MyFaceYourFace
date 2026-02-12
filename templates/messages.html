@@ -19,8 +19,20 @@
             <div class="wall-name">{{ m.from_name }}</div>
           </a>
         </div>
+
         <div class="wall-right">
-          <div class="wall-bubble">{{ m.content }}</div>
+          <div class="wall-bubble-row">
+            <div class="wall-bubble">{{ m.content }}</div>
+
+            <!-- recipient can always delete; sender can delete too -->
+            <form method="post"
+                  action="{{ url_for('delete_profile_message', message_id=m.id) }}"
+                  onsubmit="return confirm('Delete this message?');"
+                  class="delete-form">
+              <input type="hidden" name="redirect_to" value="{{ request.full_path }}">
+              <button type="submit" class="icon-delete" aria-label="Delete">X</button>
+            </form>
+          </div>
         </div>
       </div>
     {% endfor %}

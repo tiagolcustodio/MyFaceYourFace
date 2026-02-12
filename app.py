@@ -2,6 +2,7 @@ import os
 import sqlite3
 from datetime import datetime
 from functools import wraps
+import math
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash, g, abort
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -19,6 +20,13 @@ DEFAULT_Tiago_PASS = os.environ.get("DEFAULT_Tiago_PASS", "Quadrado86?")
 UPLOAD_DIR_PROFILES = os.path.join("static", "uploads", "profiles")
 UPLOAD_DIR_COMMUNITIES = os.path.join("static", "uploads", "communities")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
+
+PAGE_SIZE = 20
+
+SEX_OPTIONS = ["male", "female", "other"]
+ORIENTATION_OPTIONS = ["lesbian", "gay", "bisexual", "transgender", "queer", "intersex", "asexual", "other"]
+RELATIONSHIP_OPTIONS = ["single", "dating", "open", "married"]
+POLITICS_OPTIONS = ["far-left", "left", "center-left", "center", "center-right", "right", "far-right"]
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
@@ -113,8 +121,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             from_user_id INTEGER NOT NULL,
             to_user_id INTEGER NOT NULL,
-            type TEXT NOT NULL,        -- 'friend_request' | 'message'
-            status TEXT NOT NULL,      -- friend_request: pending/accepted/rejected ; message: sent
+            type TEXT NOT NULL,
+            status TEXT NOT NULL,
             created_at TEXT NOT NULL,
             FOREIGN KEY(from_user_id) REFERENCES users(id),
             FOREIGN KEY(to_user_id) REFERENCES users(id)
@@ -169,6 +177,15 @@ def init_db():
     add_column_if_missing("messages", "read_at", "ALTER TABLE messages ADD COLUMN read_at TEXT DEFAULT NULL")
     add_column_if_missing("users", "profile_pic_path", "ALTER TABLE users ADD COLUMN profile_pic_path TEXT DEFAULT NULL")
 
+    # ✅ new profile fields
+    add_column_if_missing("users", "birthdate", "ALTER TABLE users ADD COLUMN birthdate TEXT DEFAULT NULL")
+    add_column_if_missing("users", "sex", "ALTER TABLE users ADD COLUMN sex TEXT DEFAULT NULL")
+    add_column_if_missing("users", "sexual_orientation", "ALTER TABLE users ADD COLUMN sexual_orientation TEXT DEFAULT NULL")
+    add_column_if_missing("users", "relationship_status", "ALTER TABLE users ADD COLUMN relationship_status TEXT DEFAULT NULL")
+    add_column_if_missing("users", "political_orientation", "ALTER TABLE users ADD COLUMN political_orientation TEXT DEFAULT NULL")
+    add_column_if_missing("users", "favorite_team", "ALTER TABLE users ADD COLUMN favorite_team TEXT DEFAULT NULL")
+    add_column_if_missing("users", "main_hobby", "ALTER TABLE users ADD COLUMN main_hobby TEXT DEFAULT NULL")
+
 
 def seed_default_users():
     db = get_db()
@@ -210,6 +227,34 @@ def current_user():
         return None
     db = get_db()
     return db.execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
+
+
+# -----------------------------
+# Pagination helper
+# -----------------------------
+def get_page_param() -> int:
+    try:
+        p = int(request.args.get("page", "1"))
+        return max(1, p)
+    except ValueError:
+        return 1
+
+
+def pagination_meta(total: int, page: int, page_size: int = PAGE_SIZE):
+    total_pages = max(1, math.ceil(total / page_size)) if total > 0 else 1
+    page = max(1, min(page, total_pages))
+    show = total > page_size
+    return {
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "total_pages": total_pages,
+        "show": show,
+        "has_prev": page > 1,
+        "has_next": page < total_pages,
+        "prev_page": page - 1,
+        "next_page": page + 1,
+    }
 
 
 # -----------------------------
@@ -341,26 +386,35 @@ def get_user_by_username(username: str):
     return db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
 
 
-def get_wall_messages(profile_user_id: int):
+def get_wall_messages(profile_user_id: int, page: int):
     db = get_db()
-    return db.execute(
+    total = db.execute(
+        "SELECT COUNT(*) AS c FROM messages WHERE to_user_id = ? AND type = 'message'",
+        (profile_user_id,),
+    ).fetchone()["c"]
+    meta = pagination_meta(total, page, PAGE_SIZE)
+    offset = (meta["page"] - 1) * meta["page_size"]
+
+    rows = db.execute(
         """
-        SELECT m.id, m.content, m.created_at,
+        SELECT m.id, m.content, m.created_at, m.from_user_id, m.to_user_id,
                u.display_name AS from_name, u.username AS from_username, u.profile_pic_path AS from_pic
         FROM messages m
         JOIN users u ON u.id = m.from_user_id
         WHERE m.to_user_id = ? AND m.type = 'message'
         ORDER BY m.created_at DESC
+        LIMIT ? OFFSET ?
         """,
-        (profile_user_id,),
+        (profile_user_id, meta["page_size"], offset),
     ).fetchall()
+    return rows, meta
 
 
 def get_inbox_messages(user_id: int):
     db = get_db()
     return db.execute(
         """
-        SELECT m.id, m.content, m.created_at, m.read_at,
+        SELECT m.id, m.content, m.created_at, m.read_at, m.from_user_id, m.to_user_id,
                u.display_name AS from_name, u.username AS from_username, u.profile_pic_path AS from_pic
         FROM messages m
         JOIN users u ON u.id = m.from_user_id
@@ -491,19 +545,28 @@ def list_user_communities_random(user_id: int, limit: int = 12):
 # -----------------------------
 # Helpers (topics)
 # -----------------------------
-def list_topics(community_id: int):
+def list_topics_paginated(community_id: int, page: int):
     db = get_db()
-    return db.execute(
+    total = db.execute(
+        "SELECT COUNT(*) AS c FROM community_topics WHERE community_id = ?",
+        (community_id,),
+    ).fetchone()["c"]
+    meta = pagination_meta(total, page, PAGE_SIZE)
+    offset = (meta["page"] - 1) * meta["page_size"]
+
+    rows = db.execute(
         """
-        SELECT t.id, t.title, t.created_at, t.updated_at,
+        SELECT t.id, t.title, t.created_at, t.updated_at, t.created_by_user_id,
                u.display_name AS created_by_name, u.username AS created_by_username
         FROM community_topics t
         JOIN users u ON u.id = t.created_by_user_id
         WHERE t.community_id = ?
         ORDER BY t.updated_at DESC
+        LIMIT ? OFFSET ?
         """,
-        (community_id,),
+        (community_id, meta["page_size"], offset),
     ).fetchall()
+    return rows, meta
 
 
 def get_topic(topic_id: int):
@@ -521,19 +584,28 @@ def get_topic(topic_id: int):
     ).fetchone()
 
 
-def list_topic_messages(topic_id: int):
+def list_topic_messages_paginated(topic_id: int, page: int):
     db = get_db()
-    return db.execute(
+    total = db.execute(
+        "SELECT COUNT(*) AS c FROM topic_messages WHERE topic_id = ?",
+        (topic_id,),
+    ).fetchone()["c"]
+    meta = pagination_meta(total, page, PAGE_SIZE)
+    offset = (meta["page"] - 1) * meta["page_size"]
+
+    rows = db.execute(
         """
-        SELECT tm.id, tm.content, tm.created_at,
+        SELECT tm.id, tm.content, tm.created_at, tm.from_user_id,
                u.display_name AS from_name, u.username AS from_username, u.profile_pic_path AS from_pic
         FROM topic_messages tm
         JOIN users u ON u.id = tm.from_user_id
         WHERE tm.topic_id = ?
         ORDER BY tm.created_at DESC
+        LIMIT ? OFFSET ?
         """,
-        (topic_id,),
+        (topic_id, meta["page_size"], offset),
     ).fetchall()
+    return rows, meta
 
 
 def create_topic(community_id: int, title: str, created_by_user_id: int):
@@ -611,8 +683,6 @@ def home():
     messages_unread_count = count_messages_unread(user["id"])
 
     friends_random = list_friends_random(user["id"], limit=12)
-
-    # Home communities box can be "your communities" as well (nice and consistent)
     communities_random = list_user_communities_random(user["id"], limit=12)
 
     all_users = db.execute("SELECT id, username, display_name FROM users ORDER BY display_name ASC").fetchall()
@@ -776,20 +846,22 @@ def user_profile(username):
     if not profile_user:
         abort(404)
 
+    # viewing profile counts as read
+    mark_inbox_read(viewer["id"])
+
     pending_requests_count = count_pending_friend_requests(viewer["id"])
     messages_total_count = count_messages_total(viewer["id"])
     messages_unread_count = count_messages_unread(viewer["id"])
 
     friends_random = list_friends_random(profile_user["id"], limit=12)
-
-    # ✅ profile shows ONLY communities where that profile user is a member
     communities_random = list_user_communities_random(profile_user["id"], limit=12)
     communities_all_for_profile = list_user_communities_all(profile_user["id"])
 
     is_owner = (viewer["id"] == profile_user["id"])
     is_friend = are_friends(viewer["id"], profile_user["id"]) if not is_owner else True
 
-    wall_messages = get_wall_messages(profile_user["id"])
+    page = get_page_param()
+    wall_messages, wall_pagination = get_wall_messages(profile_user["id"], page)
 
     return render_template(
         "profile.html",
@@ -805,54 +877,8 @@ def user_profile(username):
         communities_random=communities_random,
         communities_all_for_profile=communities_all_for_profile,
         wall_messages=wall_messages,
+        wall_pagination=wall_pagination,
     )
-
-
-@app.get("/edit-profile")
-@login_required
-def edit_profile():
-    user = current_user()
-    return render_template(
-        "edit_profile.html",
-        app_name=APP_NAME,
-        user=user,
-        pending_requests_count=count_pending_friend_requests(user["id"]),
-        messages_total_count=count_messages_total(user["id"]),
-        messages_unread_count=count_messages_unread(user["id"]),
-    )
-
-
-@app.post("/edit-profile")
-@login_required
-def edit_profile_post():
-    user = current_user()
-    name = (request.form.get("display_name") or "").strip()
-    desc = (request.form.get("description") or "").strip()
-
-    if not name:
-        flash("Name cannot be empty.")
-        return redirect(url_for("edit_profile"))
-
-    pic = request.files.get("profile_pic")
-    rel_path = None
-    if pic and pic.filename:
-        rel_path = save_upload(pic, "profiles", prefix=f"user{user['id']}")
-        if rel_path is None:
-            flash("Invalid file. Please upload PNG or JPG.")
-            return redirect(url_for("edit_profile"))
-
-    db = get_db()
-    if rel_path:
-        db.execute(
-            "UPDATE users SET display_name = ?, description = ?, profile_pic_path = ? WHERE id = ?",
-            (name, desc, rel_path, user["id"]),
-        )
-    else:
-        db.execute("UPDATE users SET display_name = ?, description = ? WHERE id = ?", (name, desc, user["id"]))
-    db.commit()
-
-    flash("Profile updated.")
-    return redirect(url_for("my_profile_redirect"))
 
 
 @app.post("/u/<username>/message")
@@ -890,6 +916,139 @@ def post_message(username):
     db.commit()
     flash("Message posted.")
     return redirect(url_for("user_profile", username=username))
+
+
+# ✅ delete profile/inbox message
+@app.post("/messages/<int:message_id>/delete")
+@login_required
+def delete_profile_message(message_id):
+    viewer = current_user()
+    db = get_db()
+
+    msg = db.execute(
+        """
+        SELECT id, from_user_id, to_user_id, type
+        FROM messages
+        WHERE id = ? AND type = 'message'
+        """,
+        (message_id,),
+    ).fetchone()
+    if not msg:
+        abort(404)
+
+    # permission: profile owner (recipient) OR message author
+    if viewer["id"] not in (msg["to_user_id"], msg["from_user_id"]):
+        abort(403)
+
+    db.execute("DELETE FROM messages WHERE id = ?", (message_id,))
+    db.commit()
+
+    # redirect back where user came from
+    ref = request.form.get("redirect_to")
+    if ref:
+        return redirect(ref)
+
+    # fallback
+    return redirect(url_for("messages"))
+
+
+@app.get("/edit-profile")
+@login_required
+def edit_profile():
+    user = current_user()
+    return render_template(
+        "edit_profile.html",
+        app_name=APP_NAME,
+        user=user,
+        sex_options=SEX_OPTIONS,
+        orientation_options=ORIENTATION_OPTIONS,
+        relationship_options=RELATIONSHIP_OPTIONS,
+        politics_options=POLITICS_OPTIONS,
+        pending_requests_count=count_pending_friend_requests(user["id"]),
+        messages_total_count=count_messages_total(user["id"]),
+        messages_unread_count=count_messages_unread(user["id"]),
+    )
+
+
+@app.post("/edit-profile")
+@login_required
+def edit_profile_post():
+    user = current_user()
+
+    name = (request.form.get("display_name") or "").strip()
+    desc = (request.form.get("description") or "").strip()
+
+    birthdate = (request.form.get("birthdate") or "").strip() or None
+    sex = (request.form.get("sex") or "").strip() or None
+    orientation = (request.form.get("sexual_orientation") or "").strip() or None
+    relationship = (request.form.get("relationship_status") or "").strip() or None
+    politics = (request.form.get("political_orientation") or "").strip() or None
+    favorite_team = (request.form.get("favorite_team") or "").strip() or None
+    main_hobby = (request.form.get("main_hobby") or "").strip() or None
+
+    if not name:
+        flash("Name cannot be empty.")
+        return redirect(url_for("edit_profile"))
+
+    # validate radios if provided
+    if sex and sex not in SEX_OPTIONS:
+        flash("Invalid sex option.")
+        return redirect(url_for("edit_profile"))
+    if orientation and orientation not in ORIENTATION_OPTIONS:
+        flash("Invalid orientation option.")
+        return redirect(url_for("edit_profile"))
+    if relationship and relationship not in RELATIONSHIP_OPTIONS:
+        flash("Invalid relationship option.")
+        return redirect(url_for("edit_profile"))
+    if politics and politics not in POLITICS_OPTIONS:
+        flash("Invalid political option.")
+        return redirect(url_for("edit_profile"))
+
+    pic = request.files.get("profile_pic")
+    rel_path = None
+    if pic and pic.filename:
+        rel_path = save_upload(pic, "profiles", prefix=f"user{user['id']}")
+        if rel_path is None:
+            flash("Invalid file. Please upload PNG or JPG.")
+            return redirect(url_for("edit_profile"))
+
+    db = get_db()
+    if rel_path:
+        db.execute(
+            """
+            UPDATE users
+            SET display_name = ?, description = ?, profile_pic_path = ?,
+                birthdate = ?, sex = ?, sexual_orientation = ?, relationship_status = ?,
+                political_orientation = ?, favorite_team = ?, main_hobby = ?
+            WHERE id = ?
+            """,
+            (
+                name, desc, rel_path,
+                birthdate, sex, orientation, relationship,
+                politics, favorite_team, main_hobby,
+                user["id"],
+            ),
+        )
+    else:
+        db.execute(
+            """
+            UPDATE users
+            SET display_name = ?, description = ?,
+                birthdate = ?, sex = ?, sexual_orientation = ?, relationship_status = ?,
+                political_orientation = ?, favorite_team = ?, main_hobby = ?
+            WHERE id = ?
+            """,
+            (
+                name, desc,
+                birthdate, sex, orientation, relationship,
+                politics, favorite_team, main_hobby,
+                user["id"],
+            ),
+        )
+    db.commit()
+
+    flash("Profile updated.")
+    return redirect(url_for("my_profile_redirect"))
 
 
 @app.get("/friends")
@@ -991,7 +1150,7 @@ def create_community_route():
     )
     db.commit()
 
-    # creator always becomes a member
+    # creator always becomes a member ✅
     community_id = db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
     add_member(user["id"], community_id)
 
@@ -1011,7 +1170,9 @@ def community_page(cid):
     creator = (community["created_by_user_id"] == user["id"])
 
     members_random = list_members_random(cid, limit=12)
-    topics = list_topics(cid)
+
+    page = get_page_param()
+    topics, topics_pagination = list_topics_paginated(cid, page)
 
     return render_template(
         "community.html",
@@ -1022,6 +1183,7 @@ def community_page(cid):
         is_creator=creator,
         members_random=members_random,
         topics=topics,
+        topics_pagination=topics_pagination,
         pending_requests_count=count_pending_friend_requests(user["id"]),
         messages_total_count=count_messages_total(user["id"]),
         messages_unread_count=count_messages_unread(user["id"]),
@@ -1049,7 +1211,6 @@ def community_leave(cid):
     if not community:
         abort(404)
 
-    # creator is always a member (prevent leaving)
     if community["created_by_user_id"] == user["id"]:
         flash("The creator cannot leave the community.")
         return redirect(url_for("community_page", cid=cid))
@@ -1160,13 +1321,11 @@ def delete_community(cid):
 
     db = get_db()
 
-    # delete topic messages + topics
     topic_ids = db.execute("SELECT id FROM community_topics WHERE community_id = ?", (cid,)).fetchall()
     for t in topic_ids:
         db.execute("DELETE FROM topic_messages WHERE topic_id = ?", (t["id"],))
     db.execute("DELETE FROM community_topics WHERE community_id = ?", (cid,))
 
-    # members + community itself
     db.execute("DELETE FROM community_members WHERE community_id = ?", (cid,))
     db.execute("DELETE FROM communities WHERE id = ?", (cid,))
     db.commit()
@@ -1200,6 +1359,27 @@ def create_topic_route(cid):
     return redirect(url_for("community_page", cid=cid))
 
 
+# ✅ delete topic (only topic creator)
+@app.post("/c/<int:cid>/topics/<int:tid>/delete")
+@login_required
+def delete_topic(cid, tid):
+    user = current_user()
+    topic = get_topic(tid)
+    if not topic or topic["community_id"] != cid:
+        abort(404)
+
+    if topic["created_by_user_id"] != user["id"]:
+        abort(403)
+
+    db = get_db()
+    db.execute("DELETE FROM topic_messages WHERE topic_id = ?", (tid,))
+    db.execute("DELETE FROM community_topics WHERE id = ?", (tid,))
+    db.commit()
+
+    flash("Topic deleted.")
+    return redirect(url_for("community_page", cid=cid))
+
+
 @app.get("/c/<int:cid>/t/<int:tid>")
 @login_required
 def topic_page(cid, tid):
@@ -1216,7 +1396,9 @@ def topic_page(cid, tid):
     creator = (community["created_by_user_id"] == user["id"])
 
     members_random = list_members_random(cid, limit=12)
-    msgs = list_topic_messages(tid)
+
+    page = get_page_param()
+    msgs, msgs_pagination = list_topic_messages_paginated(tid, page)
 
     return render_template(
         "topic.html",
@@ -1228,6 +1410,7 @@ def topic_page(cid, tid):
         is_creator=creator,
         members_random=members_random,
         messages=msgs,
+        messages_pagination=msgs_pagination,
         pending_requests_count=count_pending_friend_requests(user["id"]),
         messages_total_count=count_messages_total(user["id"]),
         messages_unread_count=count_messages_unread(user["id"]),
@@ -1259,6 +1442,39 @@ def post_topic_message(cid, tid):
         return redirect(url_for("topic_page", cid=cid, tid=tid))
 
     add_topic_message(tid, user["id"], content)
+    return redirect(url_for("topic_page", cid=cid, tid=tid))
+
+
+# ✅ delete topic message (only author OR topic creator)
+@app.post("/c/<int:cid>/t/<int:tid>/messages/<int:mid>/delete")
+@login_required
+def delete_topic_message(cid, tid, mid):
+    user = current_user()
+    topic = get_topic(tid)
+    if not topic or topic["community_id"] != cid:
+        abort(404)
+
+    db = get_db()
+    msg = db.execute(
+        """
+        SELECT id, topic_id, from_user_id
+        FROM topic_messages
+        WHERE id = ? AND topic_id = ?
+        """,
+        (mid, tid),
+    ).fetchone()
+    if not msg:
+        abort(404)
+
+    if user["id"] not in (msg["from_user_id"], topic["created_by_user_id"]):
+        abort(403)
+
+    db.execute("DELETE FROM topic_messages WHERE id = ?", (mid,))
+    db.commit()
+
+    ref = request.form.get("redirect_to")
+    if ref:
+        return redirect(ref)
     return redirect(url_for("topic_page", cid=cid, tid=tid))
 
 

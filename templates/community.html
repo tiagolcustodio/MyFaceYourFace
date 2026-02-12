@@ -59,12 +59,37 @@
     {% else %}
       <div class="topic-list">
         {% for t in topics %}
-          <a class="topic-card" href="{{ url_for('topic_page', cid=community.id, tid=t.id) }}">
-            <div class="topic-title">{{ t.title }}</div>
-            <div class="topic-meta muted">Last update: {{ t.updated_at }}</div>
-          </a>
+          <div class="topic-card">
+            <a class="topic-main" href="{{ url_for('topic_page', cid=community.id, tid=t.id) }}">
+              <div class="topic-title">{{ t.title }}</div>
+              <div class="topic-meta muted">Last update: {{ t.updated_at }}</div>
+            </a>
+
+            {% if user.id == t.created_by_user_id %}
+              <form method="post"
+                    action="{{ url_for('delete_topic', cid=community.id, tid=t.id) }}"
+                    onsubmit="return confirm('Delete this topic (and all its messages)?');"
+                    class="delete-form">
+                <button type="submit" class="icon-delete" aria-label="Delete topic">X</button>
+              </form>
+            {% endif %}
+          </div>
         {% endfor %}
       </div>
+
+      {% if topics_pagination.show %}
+        <div class="pagination">
+          {% if topics_pagination.has_prev %}
+            <a class="page-link" href="{{ url_for('community_page', cid=community.id, page=topics_pagination.prev_page) }}">Prev</a>
+          {% endif %}
+
+          <span class="page-info">Page {{ topics_pagination.page }} / {{ topics_pagination.total_pages }}</span>
+
+          {% if topics_pagination.has_next %}
+            <a class="page-link" href="{{ url_for('community_page', cid=community.id, page=topics_pagination.next_page) }}">Next</a>
+          {% endif %}
+        </div>
+      {% endif %}
     {% endif %}
   </div>
 

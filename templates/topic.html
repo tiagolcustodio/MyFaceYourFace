@@ -51,12 +51,39 @@
                 <div class="wall-name">{{ m.from_name }}</div>
               </a>
             </div>
+
             <div class="wall-right">
-              <div class="wall-bubble">{{ m.content }}</div>
+              <div class="wall-bubble-row">
+                <div class="wall-bubble">{{ m.content }}</div>
+
+                {% if user.id == m.from_user_id or user.id == topic.created_by_user_id %}
+                  <form method="post"
+                        action="{{ url_for('delete_topic_message', cid=community.id, tid=topic.id, mid=m.id) }}"
+                        onsubmit="return confirm('Delete this message?');"
+                        class="delete-form">
+                    <input type="hidden" name="redirect_to" value="{{ request.full_path }}">
+                    <button type="submit" class="icon-delete" aria-label="Delete">X</button>
+                  </form>
+                {% endif %}
+              </div>
             </div>
           </div>
         {% endfor %}
       </div>
+
+      {% if messages_pagination.show %}
+        <div class="pagination">
+          {% if messages_pagination.has_prev %}
+            <a class="page-link" href="{{ url_for('topic_page', cid=community.id, tid=topic.id, page=messages_pagination.prev_page) }}">Prev</a>
+          {% endif %}
+
+          <span class="page-info">Page {{ messages_pagination.page }} / {{ messages_pagination.total_pages }}</span>
+
+          {% if messages_pagination.has_next %}
+            <a class="page-link" href="{{ url_for('topic_page', cid=community.id, tid=topic.id, page=messages_pagination.next_page) }}">Next</a>
+          {% endif %}
+        </div>
+      {% endif %}
     {% endif %}
   </div>
 
